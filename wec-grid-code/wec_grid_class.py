@@ -1,5 +1,6 @@
 # Wec_grid_class 
 import os,sys
+from pickle import HIGHEST_PROTOCOL
 
 # Path stuff
 sys.path.append(r"C:\Program Files\PTI\PSSE35\35.3\PSSPY37")
@@ -17,33 +18,82 @@ import pandas as pd
 import psse35
 psse35.set_minor(3)
 import math
+import numpy as np
+import matplotlib.pyplot as plt
 
 import psspy
 psspy.psseinit(50)
 
 
 class Wec_grid:
-    def __init__(self, case):
+    def __init__(self, case, solver, wec_bus):
+
+        # initalized variables and files
         self.case_file = case
+        self.lst_param = ['BASE', 'PU', 'ANGLED', 'P', 'Q']
         self.dataframe = pd.DataFrame()
+        self.wecBus_num = wec_bus
+        self.history = {}
+        self._i = psspy.getdefaultint()
+        self._f = psspy.getdefaultreal()
+        self._s = psspy.getdefaultchar()
+
+        # initialization functions
         psspy.read(1, case)
-        self.lst = []
+        self.run_powerflow(solver)
+
+        # program variables
+        self.swingBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1']
+        self.swingBus.insert(0, 'time', None)
+        self.wecBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))]
+        self.wecBus.insert(0, 'time', None)
+
+        self.history['Start'] = self.dataframe
+
+    def clear():
+        # initalized variables and files
+        self.case_file = case
+        self.lst_param = ['BASE', 'PU', 'ANGLED', 'P', 'Q']
+        self.dataframe = pd.DataFrame()
+        self.wecBus_num = wec_bus
+        self.history = {}
+
+        # initialization functions
+        psspy.read(1, case)
+        self.run_powerflow(solver)
+
+        # program variables
+        self.swingBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1']
+        self.swingBus.insert(0, 'time', None)
+        self.wecBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))]
+        self.wecBus.insert(0, 'time', None)
+
+        self.history['Start'] = self.dataframe
 
     def run_powerflow(self,solver):
         if solver == 'fnsl':
             psspy.fnsl()
+            self.get_values()
         if solver == 'GS':
             psspy.solv()
+            self.get_values()
+        if solver == 'DC':
+            print("here")
+            psspy.dclf()
+            self.get_values()
+        else:
+            print("error in run_pf")
 
-    def get_values(self, lst):
+    def get_values(self):
         """
         Descrtiption: 
         input: List of Parameters such as BASE, PU, KV, ANGLED 
         output: Dataframe of the selected parameters for each bus
         """
-        self.lst = lst
+        lst = self.lst_param
         temp_dict = {}
         for i in range(len(lst)):
+            #print('here {}'.format(i))
             if lst[i] != "P" and lst[i] != "Q":
                 ierr, bus_voltages = psspy.abusreal(-1, string=lst[i])
                 bus_add = {}
@@ -51,11 +101,16 @@ class Wec_grid:
                     bus_add['BUS {}'.format(j+1)] = bus_voltages[0][j]
                     temp_dict[lst[i]] = bus_voltages[0]
                 temp_dict[lst[i]] = bus_add
+                
 
         self.dataframe = pd.DataFrame.from_dict(temp_dict) 
         self.dataframe = self.dataframe.reset_index()
         self.dataframe = self.dataframe.rename(columns={'index':"Bus"})
         self.dataframe['Type'] = psspy.abusint(-1, string="TYPE")[1][0]
+        self.dataframe.insert(0, "BUS_ID", range(1, 1 + len(self.dataframe)))
+        self.addGeninfo()
+        self.addLoadinfo()
+        
         if "P" in lst:
             self.dataframe['P'] = 0 # initalize P column
             self.get_p_or_q('P')
@@ -63,7 +118,7 @@ class Wec_grid:
         if "Q" in lst:
             self.dataframe['Q'] = 0 # initalize Q column
             self.get_p_or_q('Q')
-        self.dataframe.insert(0, "BUS_ID", range(1, 1 + len(self.dataframe)))
+        #self.dataframe.insert(0, "BUS_ID", range(1, 1 + len(self.dataframe)))
             
             
     def get_p_or_q(self, letter):
@@ -72,16 +127,32 @@ class Wec_grid:
         input:
         output:
         """
-        ierr, from_to = psspy.aflowint(sid=-1, string=["FROMNUMBER", "TONUMBER"])
-        ierr, p_q = psspy.aflowreal(sid=-1, string=[letter])
-        from_to_p_q = from_to + p_q
-        branches = zip(*from_to_p_q)
-        for ibus in self.busNum():
-            temp: float = 0
-            for i in range(len(from_to_p_q[0])):
-                if ibus == from_to_p_q[0][i]:  
-                    temp = math.fsum([temp, from_to_p_q[2][i]])
-            self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(ibus), letter] = temp
+#         ierr, from_to = psspy.aflowint(sid=-1, string=["FROMNUMBER", "TONUMBER"])
+#         ierr, p_q = psspy.aflowreal(sid=-1, string=[letter])
+#         from_to_p_q = from_to + p_q
+#         branches = zip(*from_to_p_q)
+#         for ibus in self.busNum():
+#             temp: float = 0
+#             for i in range(len(from_to_p_q[0])):
+#                 if ibus == from_to_p_q[0][i]:  
+#                     temp = math.fsum([temp, from_to_p_q[2][i]])
+#             self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(ibus), letter] = temp
+            
+            
+        gen = self.dataframe['{} Gen'.format(letter)]
+        load = self.dataframe['{} Load'.format(letter)]
+        temp = []
+        for i in range(len(gen)):
+            if (not np.isnan(gen[i])) and (not np.isnan(load[i])):
+                temp.append(gen[i] - load[i])
+            elif np.isnan(gen[i]) and np.isnan(load[i]):
+                temp.append(None)
+            else:
+                if np.isnan(gen[i]):
+                    temp.append(-load[i])
+                else:
+                    temp.append(gen[i])
+        self.dataframe['{}'.format(letter)] = temp
             
             
     def busNum(self):
@@ -94,36 +165,66 @@ class Wec_grid:
         ierr,all_bus = psspy.abusint(0,1,['number'])
         return all_bus[0]
     
-    def dc_injection(self, ibus, p):
+    def dc_injection(self, ibus, p, pf_solver, time):
         ierr = psspy.machine_chng_3(ibus, "1", [], [p])
         if ierr > 0:
             print("Failed | machine_chng_3 code = {}".format(ierr))
-        self.run_powerflow()
-        self.get_values(self.lst)
-        
-        
-#     def addGeninfo(self):
-#         buses = []
-#         for string in psspy.agenbuschar(-1,1,'NAME')[1][0]:
-#             buses.append(self.findBusNum(string))
+        #self.run_powerflow('DC')
+        psspy.dclf()
+        self.get_values()
 
-#         p_gen_list = psspy.agenbusreal(-1,1,'PGEN')[1][0]
-#         pointer = 0
-#         q_gen_list = psspy.agenbusreal(-1,1,'QGEN')[1][0]
-#         p_gen_df_list = []
-#         q_gen_df_list = []
-#         for index, row in self.dataframe.iterrows():
-#             if row['BUS_ID'] == buses[pointer]:
-#                 p_gen_df_list.append(p_gen_list[pointer])
-#                 q_gen_df_list.append(q_gen_list[pointer])
-#                 pointer +=1
-#                 if pointer >= len(buses):
-#                     pointer = 0
-#             else:
-#                 p_gen_df_list.append(None)
-#                 q_gen_df_list.append(None)
-#         self.dataframe['P Gen'] = p_gen_df_list
-#         self.dataframe['Q Gen'] = q_gen_df_list
+        temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1'])
+        temp.insert(0, 'time', time)
+        self.swingBus = self.swingBus.append(temp)
+
+
+        temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))])
+        temp.insert(0,'time', time)
+        self.wecBus = self.wecBus.append(temp)
+
+        self.history[time] = self.dataframe
+        
+        #self.get_values(self.lst) this is now done in run_pf
+        
+    def ac_injection(self, ibus, p, v, pf_solver, time):
+        ierr = psspy.machine_chng_3(ibus, "1", [], [p])
+        if ierr > 0:
+            print("Failed | machine_chng_3 code = {}".format(ierr))
+            
+        
+        ierr = psspy.bus_chng_4(ibus, 0, [],[self._f, v])
+        
+        if ierr > 0:
+            print("Failed | bus_chng_4 code = {}".format(ierr))
+            
+        self.run_powerflow(pf_solver)
+
+        temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1'])
+        temp.insert(0, 'time', time)
+        self.swingBus = self.swingBus.append(temp)
+
+
+        temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))])
+        temp.insert(0,'time', time)
+        self.wecBus = self.wecBus.append(temp)
+
+        self.history[time] = self.dataframe
+
+    def plotSwingBus(self, letter):
+        plt.plot(self.swingBus.time, self.swingBus[letter], marker="o", markersize=5, markerfacecolor="green")
+        plt.xlabel("Time (sec)")
+        plt.ylabel("{} in MW".format(letter))
+        plt.title("Swing bus")
+        plt.show()
+    
+    def plotWecBus(self, letter):
+        plt.plot(self.wecBus.time, self.wecBus[letter], marker="x", markersize=5, markerfacecolor="red")
+        plt.xlabel("Time (sec)")
+        plt.ylabel("{} in MW".format(letter))
+        plt.title("Wec bus")
+        plt.show()
+        
+        
     def addGeninfo(self):
         buses = []
         for string in psspy.amachchar(-1,1,'NAME')[1][0]:

@@ -20,64 +20,59 @@ psse35.set_minor(3)
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-
 import psspy
 psspy.psseinit(50)
 
 
 class Wec_grid:
     def __init__(self, case, solver, wec_bus):
-
         # initalized variables and files
         self.case_file = case
         self.lst_param = ['BASE', 'PU', 'ANGLED', 'P', 'Q']
         self.dataframe = pd.DataFrame()
         self.wecBus_num = wec_bus
         self.history = {}
+        self.solver = solver
         self._i = psspy.getdefaultint()
         self._f = psspy.getdefaultreal()
         self._s = psspy.getdefaultchar()
 
         # initialization functions
         psspy.read(1, case)
-        self.run_powerflow(solver)
+        self.run_powerflow(self.solver)
 
         # program variables
         self.swingBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1']
         self.swingBus.insert(0, 'time', None)
         self.wecBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))]
         self.wecBus.insert(0, 'time', None)
-
         self.history['Start'] = self.dataframe
 
-    def clear():
+    def clear(self):
         # initalized variables and files
-        self.case_file = case
         self.lst_param = ['BASE', 'PU', 'ANGLED', 'P', 'Q']
         self.dataframe = pd.DataFrame()
-        self.wecBus_num = wec_bus
         self.history = {}
 
         # initialization functions
-        psspy.read(1, case)
-        self.run_powerflow(solver)
+        psspy.read(1, self.case_file)
+        self.run_powerflow(self.solver)
 
         # program variables
         self.swingBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1']
         self.swingBus.insert(0, 'time', None)
         self.wecBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))]
         self.wecBus.insert(0, 'time', None)
-
         self.history['Start'] = self.dataframe
 
     def run_powerflow(self,solver):
         if solver == 'fnsl':
             psspy.fnsl()
             self.get_values()
-        if solver == 'GS':
+        elif solver == 'GS':
             psspy.solv()
             self.get_values()
-        if solver == 'DC':
+        elif solver == 'DC':
             print("here")
             psspy.dclf()
             self.get_values()
@@ -118,27 +113,13 @@ class Wec_grid:
         if "Q" in lst:
             self.dataframe['Q'] = 0 # initalize Q column
             self.get_p_or_q('Q')
-        #self.dataframe.insert(0, "BUS_ID", range(1, 1 + len(self.dataframe)))
-            
-            
+               
     def get_p_or_q(self, letter):
         """
         Descrtiption: retre P (activate) Q (reactive) Voltage (in PU) and Voltage Angle for each Bus in the current loaded case
         input:
         output:
         """
-#         ierr, from_to = psspy.aflowint(sid=-1, string=["FROMNUMBER", "TONUMBER"])
-#         ierr, p_q = psspy.aflowreal(sid=-1, string=[letter])
-#         from_to_p_q = from_to + p_q
-#         branches = zip(*from_to_p_q)
-#         for ibus in self.busNum():
-#             temp: float = 0
-#             for i in range(len(from_to_p_q[0])):
-#                 if ibus == from_to_p_q[0][i]:  
-#                     temp = math.fsum([temp, from_to_p_q[2][i]])
-#             self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(ibus), letter] = temp
-            
-            
         gen = self.dataframe['{} Gen'.format(letter)]
         load = self.dataframe['{} Load'.format(letter)]
         temp = []
@@ -154,7 +135,6 @@ class Wec_grid:
                     temp.append(gen[i])
         self.dataframe['{}'.format(letter)] = temp
             
-            
     def busNum(self):
         """
         Descrtiption: Returns the number of Buses in the currently loaded case
@@ -166,6 +146,11 @@ class Wec_grid:
         return all_bus[0]
     
     def dc_injection(self, ibus, p, pf_solver, time):
+        """
+        Descrtiption:
+        input:
+        output:
+        """
         ierr = psspy.machine_chng_3(ibus, "1", [], [p])
         if ierr > 0:
             print("Failed | machine_chng_3 code = {}".format(ierr))
@@ -184,48 +169,77 @@ class Wec_grid:
 
         self.history[time] = self.dataframe
         
-        #self.get_values(self.lst) this is now done in run_pf
-        
     def ac_injection(self, ibus, p, v, pf_solver, time):
+        """
+        Descrtiption:
+        input:
+        output:
+        """
         ierr = psspy.machine_chng_3(ibus, "1", [], [p])
         if ierr > 0:
             print("Failed | machine_chng_3 code = {}".format(ierr))
             
-        
         ierr = psspy.bus_chng_4(ibus, 0, [],[self._f, v])
-        
         if ierr > 0:
             print("Failed | bus_chng_4 code = {}".format(ierr))
             
         self.run_powerflow(pf_solver)
-
         temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1'])
         temp.insert(0, 'time', time)
         self.swingBus = self.swingBus.append(temp)
-
-
         temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))])
         temp.insert(0,'time', time)
         self.wecBus = self.wecBus.append(temp)
 
         self.history[time] = self.dataframe
 
-    def plotSwingBus(self, letter):
-        plt.plot(self.swingBus.time, self.swingBus[letter], marker="o", markersize=5, markerfacecolor="green")
-        plt.xlabel("Time (sec)")
-        plt.ylabel("{} in MW".format(letter))
-        plt.title("Swing bus")
+    def plotSwingBus(self):
+        """
+        Descrtiption:
+        input:
+        output:
+        """
+        # fig, axs = plt.subplots(2)
+        # plt.plot(self.swingBus.time, self.swingBus[letter], marker="o", markersize=5, markerfacecolor="green")
+        # plt.xlabel("Time (sec)")
+        # plt.ylabel("{} in MW".format(letter))
+        # plt.title("Swing bus")
+        fig, (ax1, ax2) = plt.subplots(2)
+        fig.suptitle("Swing bus")
+        ax1.plot(self.swingBus.time, self.swingBus["P"], marker="o", markersize=5, markerfacecolor="green")
+        ax2.plot(self.swingBus.time, self.swingBus["Q"], marker="o", markersize=5, markerfacecolor="green")
+        ax1.set(xlabel="Time(sec)", ylabel="P(MW)")
+        ax2.set(xlabel="Time(sec)", ylabel="Q(MW)")
         plt.show()
     
-    def plotWecBus(self, letter):
-        plt.plot(self.wecBus.time, self.wecBus[letter], marker="x", markersize=5, markerfacecolor="red")
-        plt.xlabel("Time (sec)")
-        plt.ylabel("{} in MW".format(letter))
-        plt.title("Wec bus")
-        plt.show()
-        
-        
+    def plotWecBus(self, mode="Gen"):
+        """
+        Descrtiption:
+        input:
+        output:
+        """
+        if mode == "Gen":
+            fig, (ax1, ax2) = plt.subplots(2)
+            fig.suptitle("Swing bus")
+            ax1.plot(self.wecBus.time, self.wecBus["P"], marker="o", markersize=5, markerfacecolor="green")
+            ax2.plot(self.wecBus.time, self.wecBus["Q"], marker="o", markersize=5, markerfacecolor="green")
+            ax1.set(xlabel="Time(sec)", ylabel="P(MW)")
+            ax2.set(xlabel="Time(sec)", ylabel="Q(MW)")
+            plt.show()
+        else: 
+            fig, (ax1, ax2) = plt.subplots(2)
+            fig.suptitle("Swing bus")
+            ax1.plot(self.wecBus.time, self.wecBus["P Gen"], marker="o", markersize=5, markerfacecolor="green")
+            ax2.plot(self.wecBus.time, self.wecBus["Q Gen "], marker="o", markersize=5, markerfacecolor="green")
+            ax1.set(xlabel="Time(sec)", ylabel="P Gen (MW)")
+            ax2.set(xlabel="Time(sec)", ylabel="Q Gen (MW)")
+          
     def addGeninfo(self):
+        """
+        Descrtiption:
+        input:
+        output:
+        """
         buses = []
         for string in psspy.amachchar(-1,1,'NAME')[1][0]:
             buses.append(self.findBusNum(string))
@@ -250,6 +264,11 @@ class Wec_grid:
         self.dataframe['Q Gen'] = q_gen_df_list
 
     def addLoadinfo(self):
+        """
+        Descrtiption:
+        input:
+        output:
+        """
         buses = []
         for string in psspy.aloadchar(-1,1,'NAME')[1][0]:
             buses.append(self.findBusNum(string))
@@ -273,41 +292,13 @@ class Wec_grid:
         self.dataframe['Q Load'] = q_load_df_list
         
     def findBusNum(self,string_bus_name):
+        """
+        Descrtiption:
+        input:
+        output:
+        """
         temp_string = ''
         for i in string_bus_name:
             if i.isdigit():
                 temp_string += i
         return int(temp_string)
-
-    # def get_pq(bus_df):
-    #     """
-    #     Descrtiption: retre P (activate) Q (reactive) Voltage (in PU) and Voltage Angle for each Bus in the current loaded case
-    #     input:
-    #     output:
-    #     """
-    #     ierr, from_to = psspy.aflowint(sid=-1, string=["FROMNUMBER", "TONUMBER"])
-    #     ierr, p_q = psspy.aflowreal(sid=-1, string=["P","Q"])
-    #     from_to_p_q = from_to + p_q
-    #     branches = zip(*from_to_p_q)
-
-    #     for ibus in busNum():
-    #         p = 0
-    #         q = 0
-    #         for i in range(len(from_to_p_q[0])):
-    #             if ibus == from_to_p_q[0][i]:
-    #                 p += from_to_p_q[2][i]
-    #                 q += from_to_p_q[3][i]
-    #         bus_df.loc[bus_df['Bus'] == 'BUS {}'.format(ibus), 'P'] = p
-    #         bus_df.loc[bus_df['Bus'] == 'BUS {}'.format(ibus), 'Q'] = q
-    #     return bus_df
-
-    # def bus_voltages_to_list(list_bus):
-    #     """
-    #     Descrtiption:
-    #     input:
-    #     output:
-    #     """
-    #     temp_dict = {}
-    #     for i in range(len(list_bus)):
-    #         temp_dict[str("BUS {}".format(i+1))] =  list_bus[i]
-    #     return temp_dict

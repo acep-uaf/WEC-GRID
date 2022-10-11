@@ -73,8 +73,7 @@ class Wec_grid:
             psspy.solv()
             self.get_values()
         elif solver == 'DC':
-            print("here")
-            psspy.dclf()
+            psspy.dclf_2(1, 1, [1,0,1,2,1,1],[0,0,0], '1')
             self.get_values()
         else:
             print("error in run_pf")
@@ -223,8 +222,8 @@ class Wec_grid:
             fig.suptitle("Swing bus")
             ax1.plot(self.wecBus.time, self.wecBus["P"], marker="o", markersize=5, markerfacecolor="green")
             ax2.plot(self.wecBus.time, self.wecBus["Q"], marker="o", markersize=5, markerfacecolor="green")
-            ax1.set(xlabel="Time(sec)", ylabel="P(MW)")
-            ax2.set(xlabel="Time(sec)", ylabel="Q(MW)")
+            ax1.set(xlabel="Time(sec)", ylabel="P (MW)")
+            ax2.set(xlabel="Time(sec)", ylabel="Q (sMW)")
             plt.show()
         else: 
             fig, (ax1, ax2) = plt.subplots(2)

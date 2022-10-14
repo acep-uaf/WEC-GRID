@@ -2,6 +2,7 @@ import sys
 sys.path.append('../wec-grid-code') # 
 import wec_grid_class as wg
 import pandas as pd
+import sqlite3
 
 
 def main():
@@ -15,8 +16,8 @@ def main():
   print(pf.dataframe)
 
   # Read in Wec set point values
-  injection_file = ('../input_files/WECgen_data.csv')
-  injection = pd.read_csv(injection_file)
+  con = sqlite3.connect("../input_files/r2g_database.db")
+  injection = pd.read_sql_query("SELECT * from WEC_output", con)
   print(injection)
 
   for i in range(len(injection)):

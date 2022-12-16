@@ -16,8 +16,9 @@ def main():
   print(pf.dataframe)
 
   # Read in Wec set point values
-  con = sqlite3.connect("../input_files/r2g_database.db")
-  injection = pd.read_sql_query("SELECT * from WEC_output", con)
+  #con = sqlite3.connect("../input_files/r2g_database.db")
+  #injection = pd.read_sql_query("SELECT * from WEC_output", con)
+  injection = pd.read)
   print(injection)
 
   for i in range(len(injection)):

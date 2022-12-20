@@ -12,16 +12,15 @@ os.environ['PATH'] = (r"C:\Program Files\PTI\PSSE35\35.3\PSSPY37;"
   + r"C:\Program Files\PTI\PSSE35\35.3\EXAMPLE;" + os.environ['PATH'])
 
 # imports all the GOOOOOOD stuff we need for our program / automation stuff 
-import glob
-from pathlib import Path
+
 import pandas as pd
 import psse35
 psse35.set_minor(3)
-import math
 import numpy as np
 import matplotlib.pyplot as plt
 import psspy
 psspy.psseinit(50)
+import matlab.engine
 
 
 class Wec_grid:
@@ -64,6 +63,14 @@ class Wec_grid:
         self.wecBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))]
         self.wecBus.insert(0, 'time', None)
         self.history['Start'] = self.dataframe
+
+    # def run_wec_sim(self):
+    #     eng = matlab.engine.start_matlab()
+    #     eng.cd(".\input_files\W2G_RM3")
+    #     path = r'C:\Users\alex_barajas\Desktop\WEC-Sim\source'  # Update to match your WEC-SIM source location
+    #     eng.addpath(eng.genpath(path), nargout=0)
+    #     eng.w2gSim(nargout=0)
+    #     eng.WECsim_to_PSSe_dataFormatter(nargout=0)
 
     def run_powerflow(self,solver):
         if solver == 'fnsl':

@@ -1,12 +1,14 @@
+# AC power flow
+
 import sys
-sys.path.append('../wec-grid-code') # 
+sys.path.append('../wec-grid-code') #
 import wec_grid_class as wg
 import pandas as pd
 import sqlite3
 
 
 def main():
-  # Read in case file 
+  # Read in case file
   case14 = r"../input_files/case14.raw"
 
   # initalize WEC GRID Object
@@ -16,9 +18,8 @@ def main():
   print(pf.dataframe)
 
   # Read in Wec set point values
-  #con = sqlite3.connect("../input_files/r2g_database.db")
-  #injection = pd.read_sql_query("SELECT * from WEC_output", con)
-  injection = pd.read)
+  con = sqlite3.connect("../input_files/r2g_database.db")
+  injection = pd.read_sql_query("SELECT * from WEC_output", con)
   print(injection)
 
   for i in range(len(injection)):

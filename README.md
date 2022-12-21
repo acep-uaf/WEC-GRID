@@ -7,11 +7,11 @@ install PSSe here -> https://web.engr.oregonstate.edu/~barajale/
 
 Enviroment:
 
-Use conda to create enviroment: use the command below from the WEC-GRID directory
+Use miniconda 32 bit to create enviroment: use the command below from the WEC-GRID directory
     conda create --name PSSe --file .\spec-file.txt
 
 if that doesn't work run these commands:
-    conda create --name PSSe python=3.7
+    conda create --name PSSe python=3.7 
     conda activate PSSe
     conda install pandas
     conda install matplotlib

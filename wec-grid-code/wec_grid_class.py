@@ -20,7 +20,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import psspy
 psspy.psseinit(50)
-import matlab.engine
+#import matlab.engine
+# import redirect
+# redirect.py2psse(redirect.Alrout)
+
 
 
 class Wec_grid:

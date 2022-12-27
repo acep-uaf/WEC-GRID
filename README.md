@@ -2,6 +2,10 @@
 
 Work in progress.
 
+Install order: PSSe, miniconda, conda packages, Matlab, Matlab engine
+	- at the miniconda step, revert pywin to version 228. 
+	- miniconda on windows seems to be tricky. mileage will vary
+
 install PSSe here -> https://web.engr.oregonstate.edu/~barajale/
 	- follow the suggested PSSe config
 

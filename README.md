@@ -1,34 +1,49 @@
 # WEC-GRID
+WEC-GRID is a Python library for simulating Wave Energy Converter on PSSe
 
-Work in progress.
 
-Install order: PSSe, miniconda, conda packages, Matlab, Matlab engine
-	- at the miniconda step, revert pywin to version 228. 
-	- miniconda on windows seems to be tricky. mileage will vary
+## Installation
 
-install PSSe here -> https://web.engr.oregonstate.edu/~barajale/
-	- follow the suggested PSSe config
+Order: PSSe, miniconda, conda packages, Matlab 2021, Matlab engine
 
-Enviroment:
+Use the mini conda package manager (64 bit)[conda](https://docs.conda.io/en/latest/miniconda.html) to install supporting softwares
+
+at the miniconda step, revert pywin to version 228.
+miniconda on windows seems to be tricky. mileage will vary
+
+### Enviroment set up
 
 Use miniconda 64 bit to create enviroment: use the command below from the WEC-GRID directory
-    conda create --name PSSe --file .\spec-file.txt
 
+```bash
+conda create --name PSSe --file .\spec-file.txt
+```
 if that doesn't work run these commands:
-    conda create --name PSSe python=3.7 
-    conda activate PSSe
-    conda install pandasi
-    conda install matplotlib
-    conda install Jupyter
 
-You'll need to add Matlab to your enviroment as well, use this resources 
-    -> https://www.mathworks.com/help/matlab/matlab_external/install-the-matlab-engine-for-python.html
-*make sure you're using MATLAB 2021 or older
+```bash
+conda create --name PSSe python=3.7 
+```
+```bash
+conda activate PSSe
+```
+```bash
+conda install pandas
+```
+```bash
+conda install matplotlib
+```
+```bash
+conda install Jupyter
+```
 
-Matlab engine install
-
-make your way to this directory -> C:\Program Files\MATLAB\R2021b\extern\engines\python
-then run this command while being in your conda env -> python setup.py install 
+#### Matlab
+You'll need to add Matlab to your enviroment as well, use this resource [here](https://www.mathworks.com/help/matlab/matlab_external/install-the-matlab-engine-for-python.html)
 
 
-
+```bash
+cd C:\Program Files\MATLAB\R2021b\extern\engines\python
+```
+```bash
+ python setup.py install
+```
+*make sure you're in you're PSSe conda enviroment

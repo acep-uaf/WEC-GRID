@@ -4,11 +4,14 @@ WEC-GRID is a Python library for simulating Wave Energy Converter on PSSe
 
 ## Installation
 
-Order: PSSe, miniconda, conda packages, Matlab 2021, Matlab engine
+Install order: PSSe, miniconda, conda packages, Matlab 2021, Matlab engine
 
 Use the mini conda package manager (64 bit)[conda](https://docs.conda.io/en/latest/miniconda.html) to install supporting softwares
 
 at the miniconda step, revert pywin to version 228.
+'''bash
+pip install pywin32==228
+'''
 miniconda on windows seems to be tricky. mileage will vary
 
 ### Enviroment set up

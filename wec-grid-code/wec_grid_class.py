@@ -21,8 +21,8 @@ import matplotlib.pyplot as plt
 import psspy
 psspy.psseinit(50)
 #import matlab.engine
-# import redirect
-# redirect.py2psse(redirect.Alrout)
+import redirect
+redirect.psse2py()
 
 
 
@@ -74,6 +74,21 @@ class Wec_grid:
     #     eng.addpath(eng.genpath(path), nargout=0)
     #     eng.w2gSim(nargout=0)
     #     eng.WECsim_to_PSSe_dataFormatter(nargout=0)
+
+
+    def run_WEC_Sim(self):
+        # TODO add simulation time arg pass
+        import matlab.engine
+        eng = matlab.engine.start_matlab()
+        print("Matlab Engine estbalished")
+        eng.cd("..\input_files\W2G_RM3")
+        path = r'C:\Users\alexb\research\WEC-Sim\source'  # Update to match your WEC-SIM source location
+        eng.addpath(eng.genpath(path), nargout=0)
+        print("calling W2G")
+        eng.w2gSim(nargout=0)
+        print("calling PSSe formatting")
+        eng.WECsim_to_PSSe_dataFormatter(nargout=0)
+        print("sim complete")
 
     def run_powerflow(self,solver):
         if solver == 'fnsl':

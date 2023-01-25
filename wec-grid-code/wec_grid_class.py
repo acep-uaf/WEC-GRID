@@ -23,6 +23,9 @@ psspy.psseinit(50)
 #import matlab.engine
 import redirect
 redirect.psse2py()
+import silence #This prevents the output bar of PSSe from outputting in the console, which reduces simulation time
+from silence import silence
+import io
 
 
 
@@ -30,6 +33,7 @@ class Wec_grid:
     def __init__(self, case, solver, wec_bus):
         # initalized variables and files
         self.case_file = case
+        self.dynamic_case_file = ""
         self.lst_param = ['BASE', 'PU', 'ANGLED', 'P', 'Q']
         self.dataframe = pd.DataFrame()
         self.wecBus_num = wec_bus
@@ -40,7 +44,11 @@ class Wec_grid:
         self._s = psspy.getdefaultchar()
 
         # initialization functions
-        psspy.read(1, case)
+
+        if self.case_file.endswith('.sav'):
+            psspy.case(self.case_file)
+        elif self.case_file.endswith('.raw'):
+            psspy.read(1, self.case_file)
         self.run_powerflow(self.solver)
 
         # program variables
@@ -75,6 +83,40 @@ class Wec_grid:
     #     eng.w2gSim(nargout=0)
     #     eng.WECsim_to_PSSe_dataFormatter(nargout=0)
 
+    def run_dynamics(self):
+        """
+        Descrtiption:
+        input:
+        """
+
+        #check if dynamic file is loaded
+        if self.dynamic_case_file == "":
+            self.dynamic_case_file = input("Dynamic File location")
+        #self.dynamic_case_file = "../input_files/dynamics.dyr"
+        # Convert Generators
+        psspy.cong()
+        # Solve for dynamics
+        psspy.ordr()
+        psspy.fact()
+        psspy.tysl()
+        # Add Dynamics data file
+        psspy.dyre_new(dyrefile=self.dynamic_case_file)
+        # Add channels and parameters
+        # BUS VOLTAGE
+        psspy.chsb(sid=0, all=1, status=[-1, -1, -1, 1, 13, 0])
+        # Active and Reactive Power Flow
+        psspy.chsb(sid=0, all=1, status=[-1, -1, -1, 1, 16, 0])
+
+        # Save snapshoot
+        psspy.snap(sfile="C:\Users\alexb\research\WEC-GRID\output_files\test.out")
+
+        # Initialize
+        psspy.strt(outfile="C:\Users\alexb\research\WEC-GRID\output_files\test.out")
+
+        psspy.strt()
+        psspy.run(tpause=1)
+        # Set simulation parameter step size
+        psspy.dynamics_solution_params(realar3=0.01)
 
     def run_WEC_Sim(self):
         # TODO add simulation time arg pass
@@ -122,7 +164,7 @@ class Wec_grid:
                 temp_dict[lst[i]] = bus_add
                 
 
-        self.dataframe = pd.DataFrame.from_dict(temp_dict) 
+        self.dataframe = pd.DataFrame.from_dict(temp_dict)
         self.dataframe = self.dataframe.reset_index()
         self.dataframe = self.dataframe.rename(columns={'index':"Bus"})
         self.dataframe['Type'] = psspy.abusint(-1, string="TYPE")[1][0]
@@ -148,12 +190,12 @@ class Wec_grid:
         load = self.dataframe['{} Load'.format(letter)]
         temp = []
         for i in range(len(gen)):
-            if (not np.isnan(gen[i])) and (not np.isnan(load[i])):
+            if (not pd.isnull(gen[i])) and (not pd.isnull(load[i])):
                 temp.append(gen[i] - load[i])
-            elif np.isnan(gen[i]) and np.isnan(load[i]):
+            elif pd.isnull(gen[i]) and pd.isnull(load[i]):
                 temp.append(None)
             else:
-                if np.isnan(gen[i]):
+                if pd.isnull(gen[i]):
                     temp.append(-load[i])
                 else:
                     temp.append(gen[i])
@@ -264,9 +306,11 @@ class Wec_grid:
         input:
         output:
         """
-        buses = []
-        for string in psspy.amachchar(-1,1,'NAME')[1][0]:
-            buses.append(self.findBusNum(string))
+        # buses = []
+        # for string in psspy.amachchar(-1,1,'NAME')[1][0]:
+        #     buses.append(self.findBusNum(string))
+        #ierr, [buses, ignore] = psspy.abrnint(-1, flag=4, string=['FROMNUMBER', 'TONUMBER'])
+        buses = psspy.amachint(-1, 4,"NUMBER")[1][0]
 
         temp = psspy.amachcplx(-1,1,'PQGEN')
         pointer = 0 
@@ -293,36 +337,42 @@ class Wec_grid:
         input:
         output:
         """
-        buses = []
-        for string in psspy.aloadchar(-1,1,'NAME')[1][0]:
-            buses.append(self.findBusNum(string))
+        # buses = []
+        # for string in psspy.aloadchar(-1,1,'NAME')[1][0]:
+        #     buses.append(self.findBusNum(string))
+        #ierr, [buses, ignore] = psspy.abrnint(-1, flag=4, string=['FROMNUMBER', 'TONUMBER'])
+        buses = psspy.aloadint(-1, 4, "NUMBER")[1][0]
+        if len(buses) != 0:
+            temp = psspy.aloadcplx(-1, 1, "MVAACT")
+            pointer = 0
+            pointer_1 = 0
+            p_load_df_list = []
+            q_load_df_list = []
 
-        temp = psspy.aloadcplx(-1, 1, "MVAACT")
-        pointer = 0 
-        pointer_1 = 0
-        p_load_df_list = []
-        q_load_df_list = []
+            for index, row in self.dataframe.iterrows():
+                if row['BUS_ID'] == buses[pointer]:
 
-        for index, row in self.dataframe.iterrows():
-            if row['BUS_ID'] == buses[pointer]:
-
-                p_load_df_list.append(temp[1][0][pointer].real)
-                q_load_df_list.append(temp[1][0][pointer].imag)
-                pointer +=1
-            else:
-                p_load_df_list.append(None)
-                q_load_df_list.append(None)
-        self.dataframe['P Load'] = p_load_df_list
-        self.dataframe['Q Load'] = q_load_df_list
+                    p_load_df_list.append(temp[1][0][pointer].real)
+                    q_load_df_list.append(temp[1][0][pointer].imag)
+                    pointer +=1
+                else:
+                    p_load_df_list.append(None)
+                    q_load_df_list.append(None)
+            self.dataframe['P Load'] = p_load_df_list
+            self.dataframe['Q Load'] = q_load_df_list
+        else:
+            self.dataframe['P Load'] = None
+            self.dataframe['Q Load'] = None
         
-    def findBusNum(self,string_bus_name):
-        """
-        Descrtiption:
-        input:
-        output:
-        """
-        temp_string = ''
-        for i in string_bus_name:
-            if i.isdigit():
-                temp_string += i
-        return int(temp_string)
+    # def findBusNum(self,string_bus_name):
+    #     # not working if name does not have bus number in it
+    #     """
+    #     Descrtiption:
+    #     input:
+    #     output:
+    #     """
+    #     temp_string = ''
+    #     for i in string_bus_name:
+    #         if i.isdigit():
+    #             temp_string += i
+    #     return int(temp_string)

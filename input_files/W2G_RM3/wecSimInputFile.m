@@ -5,7 +5,7 @@ simu.explorer = 'off';                  % Turn SimMechanics Explorer (on/off)
 simu.mode = 'normal';                   % Specify Simulation Mode ('normal','accelerator','rapid-accelerator')
 simu.startTime = 0;                     % Simulation Start Time [s]
 simu.rampTime = 0;                      % Wave Ramp Time [s]
-simu.endTime = 60*60;                     % Simulation End Time [s]
+simu.endTime = 1*3600;                     % Simulation End Time [s]
 simu.solver = 'ode4';                   % simu.solver = 'ode4' for fixed step & simu.solver = 'ode45' for variable step 
 simu.dt = 0.1; 	
 
@@ -108,12 +108,17 @@ wsc.Fpto_lim = pi*ptoSim(1).directLinearGenerator.lambda_fd^2/ptoSim(1).directLi
 %due to small error accumulation from numerical calculations
 
 %grid-side converter
-gsc.Prated = 30e3;
+gsc.Prated = 60e3;
 gsc.Vmag = 480*1.1; %V, rms, l-l, 10% higher voltage than grid Vnom
 gsc.Ilim = gsc.Prated/gsc.Vmag; %A, rms
 gsc.Tavg = 5*60; %averaging period, s
 
+%voltage correction PI controller
+gsc.kp = gsc.Prated;
+gsc.ki = 0;
 
+
+%% Onboard energy storage
 %energy storage system
 ess.Vdc_0 = gsc.Vmag*sqrt(2)*1.25; %V, 25% higher than grid voltage
 ess.C = 88; %F

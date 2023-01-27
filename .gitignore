@@ -105,3 +105,19 @@ venv.bak/
 
 # User-specific stuff:
 .idea
+
+# Simulink cache
+slprj/
+*.slxc
+
+# WEC-Sim runtime generated files
+*/W2G_RM3/output/
+*/W2G_RM3/temp/
+
+# Matlab autosave files
+*.asv
+
+# Matlab/Simulink figure files
+*/W2G_RM3/sim_figures/
+*/R2G_NE5kW/sim_figures/
+

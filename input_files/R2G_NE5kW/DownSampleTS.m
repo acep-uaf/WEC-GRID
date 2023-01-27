@@ -1,8 +1,6 @@
 function [Xds] = DownSampleTS(X,T,timeshift)
 %Downsample a time-series given the new sample period.
 % NOTE: Assuming a fixed time step 
-% timeshift: set to 1 for the samples to be centered on the period, 0 for
-% the samples to be at end of period
 
 Told = X.Time(2) - X.Time(1);
 Tsample = floor(T/Told);

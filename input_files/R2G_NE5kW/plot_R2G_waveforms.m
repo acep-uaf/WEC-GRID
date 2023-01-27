@@ -3,7 +3,6 @@
 %get simulation length
 tend = m2g_out.Pgrid.Time(end);
 
-
 %% Fig 1
 f1 = figure(1);
 f1.Units = 'inches'; 
@@ -44,7 +43,6 @@ legend('Static','Dynamic','Location','southeast')
 grid on
 xticks(0:Ts/60:tend/60)
 xlim([0 tend/60])
-% yticks(0:5:65)
 ylabel('kVAr')
 title('Grid Reactive Power Limit')
 xlabel('Time (min)')
@@ -63,17 +61,15 @@ plot(m2g_out.Pgen.Time/60,m2g_out.Pgen.Data/1e3,'Color',0.6*[1 1 1])
 hold on
 plot(m2g_out.Pgrid.Time/60,m2g_out.Pgrid.Data/1e3,'LineWidth',2)
 hold off
-legend('Resource Generated Power','Grid Delivered Power')
+legend('Instantaneous Power','Power Smoothing')
 grid on
-% xticks(0:Ts:tend)
-% xlim([0 tend])
 xticks(0:Ts/60:tend/60)
 xlim([0 tend/60])
 xlabel('Time (min)')
 ylabel('kW')
-ylim([0 80])
-yticks([0:10:80])
-title('WEC Generated Electrical Power')
+ylim([0 2.5])
+yticks([0:0.5:2.5])
+title('CEC Generated Electrical Power')
 
 
 %% Fig 3

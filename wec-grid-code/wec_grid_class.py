@@ -136,6 +136,7 @@ class Wec_grid:
     def run_WEC_Sim(self):
         # TODO add simulation time arg pass
         import matlab.engine
+        from IPython.display import Image, display
         eng = matlab.engine.start_matlab()
         print("Matlab Engine estbalished")
         eng.cd(wec_model_path)
@@ -143,6 +144,10 @@ class Wec_grid:
         eng.addpath(eng.genpath(path), nargout=0)
         print("calling W2G")
         eng.w2gSim(nargout=0)
+        print("displaying simulation plots")
+        display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_Qgrid.jpg"))
+        display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_comp.jpg"))
+        display(Image(filename="..\input_files\W2G_RM3\sim_figures\DClink_voltage.jpg"))
         print("calling PSSe formatting")
         eng.WECsim_to_PSSe_dataFormatter(nargout=0)
         print("sim complete")

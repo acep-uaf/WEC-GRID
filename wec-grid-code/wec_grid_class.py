@@ -1,15 +1,28 @@
 # Wec_grid_class 
 import os,sys
-from pickle import HIGHEST_PROTOCOL
 
+paths = []
+with open('../wec-grid-code/path_config.txt', 'r') as fp:
+    while 1:
+        line = fp.readline()
+        if len(line) == 0: #end of file break
+            break
+        temp = line.split('\n')
+        paths.append(temp[0])
+
+psse_path = paths[0]
+wec_sim_path = paths[1]
+wec_model_path = paths[2]
+wec_grid_class_path = paths[3]
+wec_grid_folder= paths[4]
 # Path stuff
-sys.path.append(r"C:\Program Files\PTI\PSSE35\35.3\PSSPY37")
-sys.path.append(r"C:\Program Files\PTI\PSSE35\35.3\PSSBIN")
-sys.path.append(r"C:\Program Files\PTI\PSSE35\35.3\PSSLIB")
-sys.path.append(r"C:\Program Files\PTI\PSSE35\35.3\EXAMPLE")
-os.environ['PATH'] = (r"C:\Program Files\PTI\PSSE35\35.3\PSSPY37;" 
-  + r"C:\Program Files\PTI\PSSE35\35.3\PSSBIN;" 
-  + r"C:\Program Files\PTI\PSSE35\35.3\EXAMPLE;" + os.environ['PATH'])
+
+sys.path.append(psse_path + "\\PSSPY37")
+sys.path.append(psse_path + "\\PSSBIN")
+sys.path.append(psse_path + "\\PSSLIB")
+sys.path.append(psse_path + "\\EXAMPLE")
+sys.path.append(psse_path + "\\PSSPY37")
+os.environ['PATH'] = (psse_path + "\\PSSPY37;" + psse_path + "\\PSSBIN;" + psse_path + "\\EXAMPLE;" + os.environ['PATH'])
 
 # imports all the GOOOOOOD stuff we need for our program / automation stuff 
 
@@ -108,10 +121,12 @@ class Wec_grid:
         psspy.chsb(sid=0, all=1, status=[-1, -1, -1, 1, 16, 0])
 
         # Save snapshoot
-        psspy.snap(sfile="C:\Users\alexb\research\WEC-GRID\output_files\test.out")
+        #psspy.snap(sfile=r"C:\Users\alexb\research\WEC-GRID\output_files\test.out")
+        path = wec_grid_folder + "\\output_files\\test.out"
+        psspy.snap(sfile=path)
 
         # Initialize
-        psspy.strt(outfile="C:\Users\alexb\research\WEC-GRID\output_files\test.out")
+        psspy.strt(outfile=path)
 
         psspy.strt()
         psspy.run(tpause=1)
@@ -123,8 +138,8 @@ class Wec_grid:
         import matlab.engine
         eng = matlab.engine.start_matlab()
         print("Matlab Engine estbalished")
-        eng.cd("..\input_files\W2G_RM3")
-        path = r'C:\Users\alexb\research\WEC-Sim\source'  # Update to match your WEC-SIM source location
+        eng.cd(wec_model_path)
+        path = wec_sim_path  # Update to match your WEC-SIM source location
         eng.addpath(eng.genpath(path), nargout=0)
         print("calling W2G")
         eng.w2gSim(nargout=0)

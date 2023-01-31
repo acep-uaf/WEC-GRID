@@ -16,35 +16,34 @@ nexttile
 plot(m2g_out.Pgen.Time/60,m2g_out.Pgen.Data/1e3)
 % legend('WEC')
 grid on
-xticks(0:Ts:tend)
+xticks(0:Tsample:tend)
 xlim([0 tend])
-xticks(0:Ts/60:tend/60)
+xticks(0:Tsample/60:tend/60)
 xlim([0 tend/60])
 ylabel('kW')
 title('Resource Generated Power')
 
 nexttile
-plot(Pgrid_ds.Time/60,Pgrid_ds.Data/1e3,'.-','LineWidth',1,'MarkerSize',15)
+plot(m2g_out.Pgrid_ds.Time/60,m2g_out.Pgrid_ds.Data/1e3,'.-','LineWidth',1,'MarkerSize',15)
 hold on
 plot(m2g_out.Pgrid.Time/60,m2g_out.Pgrid.Data/1e3)
 hold off
 legend('Static','Dynamic','Location','southeast')
 grid on
-xticks(0:Ts/60:tend/60)
+xticks(0:Tsample/60:tend/60)
 xlim([0 tend/60])
 ylabel('kW')
 title('Grid Active Power')
 
 nexttile
-plot(Qgrid_lim_ds.Time/60,Qgrid_lim_ds.Data/1e3,'.-','LineWidth',1,'MarkerSize',15)
+plot(m2g_out.Qgrid_lim_ds.Time/60,m2g_out.Qgrid_lim_ds.Data/1e3,'.-','LineWidth',1,'MarkerSize',15)
 hold on
 plot(m2g_out.Qgrid_lim.Time/60,m2g_out.Qgrid_lim.Data/1e3)
 hold off
 legend('Static','Dynamic','Location','southeast')
 grid on
-xticks(0:Ts/60:tend/60)
+xticks(0:Tsample/60:tend/60)
 xlim([0 tend/60])
-% yticks(0:5:65)
 ylabel('kVAr')
 title('Grid Reactive Power Limit')
 xlabel('Time (min)')
@@ -65,9 +64,7 @@ plot(m2g_out.Pgrid.Time/60,m2g_out.Pgrid.Data/1e3,'LineWidth',2)
 hold off
 legend('Resource Generated Power','Grid Delivered Power')
 grid on
-% xticks(0:Ts:tend)
-% xlim([0 tend])
-xticks(0:Ts/60:tend/60)
+xticks(0:Tsample/60:tend/60)
 xlim([0 tend/60])
 xlabel('Time (min)')
 ylabel('kW')
@@ -91,10 +88,9 @@ yline(ess.Vdc_0 + ess.Vdc_del, '--','Label','Upper Limit')
 yline(ess.Vdc_0 - ess.Vdc_del, '--','Label','Lower Limit')
 hold off
 grid on
-xticks(0:Ts:tend)
-xlim([0 tend])
-xticks(0:Ts/60:tend/60)
+xticks(0:Tsample/60:tend/60)
 xlim([0 tend/60])
+xlabel('Time (min)')
 ylabel('V')
 title('DC Link Voltage')
 

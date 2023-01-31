@@ -56,7 +56,7 @@ m2g_out.wecId = wecId;
 
 %% Plots
 
-plot_W2G_waveforms
+%plot_W2G_waveforms
 
 end
 

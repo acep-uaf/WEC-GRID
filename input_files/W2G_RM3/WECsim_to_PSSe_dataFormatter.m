@@ -63,20 +63,22 @@ for i = 2:W2G_sample_size
 
 end
 
-path = "../r2g_database.db";
+path = "../WEC-SIM.db";
 dbfile = fullfile(path);
 conn = sqlite(dbfile);
-exec(conn, strcat("DELETE FROM WEC_output"));
-exec(conn, strcat("DROP TABLE WEC_output"));
+%exec(conn, strcat("DELETE FROM WEC_output"));
+%exec(conn, strcat("DROP TABLE WEC_output"));
+wec_id = m2g_out.wecId;
 
 
 
-sqlquery = strcat("CREATE TABLE IF NOT EXISTS WEC_output(time FLOAT, ibus FLOAT, pg FLOAT, vs FLOAT, pt FLOAT, pb FLOAT,  qt FLOAT, qb FLOAT)");
+
+sqlquery = strcat("CREATE TABLE IF NOT EXISTS "+ "WEC_output_" +string(wec_id) +"(time FLOAT, ibus FLOAT, pg FLOAT, vs FLOAT, pt FLOAT, pb FLOAT,  qt FLOAT, qb FLOAT)");
 exec(conn, sqlquery)
 colnames = {"time","ibus","pg", "vs", "pt","pb", "qt",'qb'};
 data = struct2table(W2G_data);
 data =  data(:,["time","ibus","pg", "vs","pt","pb", "qt",'qb']);
-insert(conn, 'WEC_output', colnames, data);
+insert(conn, "WEC_output_" +string(wec_id), colnames, data);
 close(conn)
 
 %strcat("SELECT name FROM sqlite_master WHERE type='table' AND name='{WEC_output}")

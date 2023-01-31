@@ -2,6 +2,8 @@
 import os
 import sys
 
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
 paths = []
 with open('../wec-grid-code/path_config.txt', 'r') as fp:
     while 1:
@@ -29,13 +31,15 @@ os.environ['PATH'] = (
 
 import pandas as pd
 import psse35
-
+import numpy as np
 psse35.set_minor(3)
 import matplotlib.pyplot as plt
 import psspy
-import redirect
+#import redirect
+import sqlite3
+import seaborn as sns
 
-redirect.psse2py()
+#redirect.psse2py()
 
 
 class Wec_grid:
@@ -51,7 +55,7 @@ class Wec_grid:
         self.dynamic_case_file = ""
         self.lst_param = ['BASE', 'PU', 'ANGLED', 'P', 'Q']
         self.dataframe = pd.DataFrame()
-        self.wecBus_num = wec_bus
+        self.wecBus_nums = wec_bus
         self.history = {}
         self.solver = solver
         self._i = psspy.getdefaultint()
@@ -70,11 +74,7 @@ class Wec_grid:
         self.run_powerflow(self.solver)
 
         # program variables
-        self.swingBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1']
-        self.swingBus.insert(0, 'time', None)
-        self.wecBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))]
-        self.wecBus.insert(0, 'time', None)
-        self.history['Start'] = self.dataframe
+        self.history[-1] = self.dataframe
 
     def clear(self):
         """
@@ -93,10 +93,6 @@ class Wec_grid:
         self.run_powerflow(self.solver)
 
         # program variables
-        self.swingBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1']
-        self.swingBus.insert(0, 'time', None)
-        self.wecBus = self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))]
-        self.wecBus.insert(0, 'time', None)
         self.history['Start'] = self.dataframe
 
     def run_dynamics(self):
@@ -136,7 +132,7 @@ class Wec_grid:
         # Set simulation parameter step size
         psspy.dynamics_solution_params(realar3=0.01)
 
-    def run_WEC_Sim(self):
+    def run_WEC_Sim(self, wec_id, sim_length, Tsample, waveHeight, wavePeriod, waveSeed):
         """
         Descrtiption:
         input:
@@ -152,19 +148,20 @@ class Wec_grid:
         print("calling W2G")
         
         # Variables required to run w2gSim
-        eng.workspace['wecId'] = 1
-        eng.workspace['simLength'] = 3600
-        eng.workspace['Tsample'] = 300
-        eng.workspace['waveHeight'] = 2.5
-        eng.workspace['wavePeriod'] = 8
-        eng.workspace['waveSeed'] = np.random.randint(999999999)
+        eng.workspace['wecId'] = wec_id
+        eng.workspace['simLength'] = sim_length
+        eng.workspace['Tsample'] = Tsample
+        eng.workspace['waveHeight'] = waveHeight
+        eng.workspace['wavePeriod'] = wavePeriod
+        eng.workspace['waveSeed'] = waveSeed
         eng.eval("m2g_out = w2gSim(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);", nargout=0)
         print("displaying simulation plots")
-        display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_Qgrid.jpg"))
-        display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_comp.jpg"))
-        display(Image(filename="..\input_files\W2G_RM3\sim_figures\DClink_voltage.jpg"))
+        #display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_Qgrid.jpg"))
+        #display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_comp.jpg"))
+        #display(Image(filename="..\input_files\W2G_RM3\sim_figures\DClink_voltage.jpg"))
         print("calling PSSe formatting")
-        eng.eval("WECsim_to_PSSe_dataFormatter",nargout=0)
+        conn = sqlite3.connect('../input_files/WEC-SIM.db')
+        eng.eval("WECsim_to_PSSe_dataFormatter", nargout=0)
         print("sim complete")
 
     def run_powerflow(self, solver):
@@ -258,32 +255,15 @@ class Wec_grid:
             print("Failed | machine_chng_3 code = {}".format(ierr))
         psspy.dclf()
         self.get_values()
-
-        temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1'])
-        temp.insert(0, 'time', time)
-        self.swingBus = self.swingBus.append(temp)
-
-        temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))])
-        temp.insert(0, 'time', time)
-        self.wecBus = self.wecBus.append(temp)
-
         self.history[time] = self.dataframe
 
-    def ac_injection(self, ibuses, p, v, pf_solver, time):
+    def ac_injection(self, p, v, pf_solver, time):
         """
         Descrtiption:
         input:
         output:
         """
-        # for list_index, bus in enumerate(ibuses):
-        #     ierr = psspy.machine_chng_3(bus, "1", [], [p[list_index]])
-        #     if ierr > 0:
-        #         print("Failed | machine_chng_3 code = {}".format(ierr))
-        #
-        #     ierr = psspy.bus_chng_4(bus, 0, [], [self._f, v[list_index]])
-        #     if ierr > 0:
-        #         print("Failed | bus_chng_4 code = {}".format(ierr))
-        for idx, bus in enumerate(ibuses):
+        for idx, bus in enumerate(self.wecBus_nums):
             ierr = psspy.machine_data_2(bus, '1', realar1=p[idx])
             if ierr > 0:
                 print("Failed | machine_chng_3 code = {}".format(ierr))
@@ -293,55 +273,38 @@ class Wec_grid:
                 print("Failed | bus_chng_4 code = {}".format(ierr))
 
         self.run_powerflow(pf_solver)
-        temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS 1'])
-        temp.insert(0, 'time', time)
-        self.swingBus = self.swingBus.append(temp)
-        temp = pd.DataFrame(self.dataframe.loc[self.dataframe['Bus'] == 'BUS {}'.format(str(self.wecBus_num))])
-        temp.insert(0, 'time', time)
-        self.wecBus = self.wecBus.append(temp)
-
         self.history[time] = self.dataframe
 
-    # def plotSwingBus(self):
-    #     """
-    #     Descrtiption:
-    #     input:
-    #     output:
-    #     """
-    #     # fig, axs = plt.subplots(2)
-    #     # plt.plot(self.swingBus.time, self.swingBus[letter], marker="o", markersize=5, markerfacecolor="green")
-    #     # plt.xlabel("Time (sec)")
-    #     # plt.ylabel("{} in MW".format(letter))
-    #     # plt.title("Swing bus")
-    #     fig, (ax1, ax2) = plt.subplots(2)
-    #     fig.suptitle("Swing bus")
-    #     ax1.plot(self.swingBus.time, self.swingBus["P"], marker="o", markersize=5, markerfacecolor="green")
-    #     ax2.plot(self.swingBus.time, self.swingBus["Q"], marker="o", markersize=5, markerfacecolor="green")
-    #     ax1.set(xlabel="Time(sec)", ylabel="P(MW)")
-    #     ax2.set(xlabel="Time(sec)", ylabel="Q(MW)")
-    #     plt.show()
-    #
-    # def plotWecBus(self, mode="Gen"):
-    #     """
-    #     Descrtiption:
-    #     input:
-    #     output:
-    #     """
-    #     if mode == "Gen":
-    #         fig, (ax1, ax2) = plt.subplots(2)
-    #         fig.suptitle("Swing bus")
-    #         ax1.plot(self.wecBus.time, self.wecBus["P"], marker="o", markersize=5, markerfacecolor="green")
-    #         ax2.plot(self.wecBus.time, self.wecBus["Q"], marker="o", markersize=5, markerfacecolor="green")
-    #         ax1.set(xlabel="Time(sec)", ylabel="P (MW)")
-    #         ax2.set(xlabel="Time(sec)", ylabel="Q (sMW)")
-    #         plt.show()
-    #     else:
-    #         fig, (ax1, ax2) = plt.subplots(2)
-    #         fig.suptitle("Swing bus")
-    #         ax1.plot(self.wecBus.time, self.wecBus["P Gen"], marker="o", markersize=5, markerfacecolor="green")
-    #         ax2.plot(self.wecBus.time, self.wecBus["Q Gen "], marker="o", markersize=5, markerfacecolor="green")
-    #         ax1.set(xlabel="Time(sec)", ylabel="P Gen (MW)")
-    #         ax2.set(xlabel="Time(sec)", ylabel="Q Gen (MW)")
+
+    def bus_history(self, bus_num):
+        """
+        Descrtiption:
+        input:
+        output:
+        """
+        bus_dataframe = pd.DataFrame()
+        for time, df in self.history.items():
+            temp = pd.DataFrame(df.loc[df["BUS_ID"] == bus_num])
+            temp.insert(0, 'time', time)
+            bus_dataframe = bus_dataframe.append(temp)
+        return bus_dataframe
+
+    def plot_bus(self, bus_num):
+        """
+        Descrtiption:
+        input:
+        output:
+        """
+        sns.set_theme()
+        fig, (ax1, ax2) = plt.subplots(2)
+        fig.suptitle("Bus {}".format(bus_num))
+        bus_df = self.bus_history(bus_num)
+        ax1.plot(bus_df.time, bus_df["P"], marker="o", markersize=5, markerfacecolor="green")
+        ax2.plot(bus_df.time, bus_df["Q"], marker="o", markersize=5, markerfacecolor="green")
+        ax1.set(xlabel="Time(sec)", ylabel="P(MW)")
+        ax2.set(xlabel="Time(sec)", ylabel="Q(MW)")
+        plt.show()
+
 
     def addGeninfo(self):
         """

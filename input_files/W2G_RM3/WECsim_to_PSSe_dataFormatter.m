@@ -39,12 +39,9 @@ sim_data_struct = struct('time',0, ...
                          'wmod',2, ...
                          'wpf',0.5 );
 
-%downsample the simulated data
-Pgrid_ds = DownSampleTS(m2g_out.Pgrid,gsc.Tavg,1);
-Qgrid_lim_ds = DownSampleTS(m2g_out.Qgrid_lim,gsc.Tavg,1);
 
 %determine number of entries in output file
-W2G_sample_size = length(Pgrid_ds.Data);
+W2G_sample_size = length(m2g_out.Pgrid_ds.Data);
 
 % W2G_dt = simu.dt;
 
@@ -55,14 +52,14 @@ W2G_data = repmat(sim_data_struct,W2G_sample_size,1); %minus 1 the sample size t
 %start at 2 to ignore the Pgen during ramp up
 for i = 2:W2G_sample_size
 
-    W2G_data(i).time = Pgrid_ds.Time(i);
-    W2G_data(i).pg = Pgrid_ds.Data(i)/1e3; %in kW
+    W2G_data(i).time = m2g_out.Pgrid_ds.Time(i);
+    W2G_data(i).pg = m2g_out.Pgrid_ds.Data(i)/1e3; %in kW
     W2G_data(i).vs = 1.1;
-    W2G_data(i).pt = Pgrid_ds.Data(i)/1e3; %in kW
+    W2G_data(i).pt = m2g_out.Pgrid_ds.Data(i)/1e3; %in kW
     W2G_data(i).pb = 0/1e3; %in kW
     W2G_data(i).qg = 0/1e3; %in kvar
-    W2G_data(i).qt = Qgrid_lim_ds.Data(i)/1e3; %in kvar
-    W2G_data(i).qb = -Qgrid_lim_ds.Data(i)/1e3; %in kvar
+    W2G_data(i).qt = m2g_out.Qgrid_lim_ds.Data(i)/1e3; %in kvar
+    W2G_data(i).qb = -m2g_out.Qgrid_lim_ds.Data(i)/1e3; %in kvar
 
 end
 

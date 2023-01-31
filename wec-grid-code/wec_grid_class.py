@@ -8,7 +8,7 @@ with open('../wec-grid-code/path_config.txt', 'r') as fp:
         if len(line) == 0: #end of file break
             break
         temp = line.split('\n')
-        paths.append(temp[0])
+        paths.append(r'{}'.format(temp[0])) #will allow spaces in path strings
 
 psse_path = paths[0]
 wec_sim_path = paths[1]
@@ -143,13 +143,20 @@ class Wec_grid:
         path = wec_sim_path  # Update to match your WEC-SIM source location
         eng.addpath(eng.genpath(path), nargout=0)
         print("calling W2G")
-        eng.w2gSim(nargout=0)
+        # Variables required to run w2gSim
+        eng.workspace['wecId'] = 1
+        eng.workspace['simLength'] = 3600
+        eng.workspace['Tsample'] = 300
+        eng.workspace['waveHeight'] = 2.5
+        eng.workspace['wavePeriod'] = 8
+        eng.workspace['waveSeed'] = np.random.randint(999999999)
+        eng.eval("m2g_out = w2gSim(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);", nargout=0)
         print("displaying simulation plots")
         display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_Qgrid.jpg"))
         display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_comp.jpg"))
         display(Image(filename="..\input_files\W2G_RM3\sim_figures\DClink_voltage.jpg"))
         print("calling PSSe formatting")
-        eng.WECsim_to_PSSe_dataFormatter(nargout=0)
+        eng.eval("WECsim_to_PSSe_dataFormatter",nargout=0)
         print("sim complete")
 
     def run_powerflow(self,solver):

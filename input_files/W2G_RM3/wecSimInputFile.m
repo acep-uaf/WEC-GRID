@@ -5,10 +5,9 @@ simu.explorer = 'off';                  % Turn SimMechanics Explorer (on/off)
 simu.mode = 'normal';                   % Specify Simulation Mode ('normal','accelerator','rapid-accelerator')
 simu.startTime = 0;                     % Simulation Start Time [s]
 simu.rampTime = 0;                      % Wave Ramp Time [s]
-simu.endTime = 1*3600;                     % Simulation End Time [s]
+simu.endTime = simLength;                     % Simulation End Time [s]
 simu.solver = 'ode4';                   % simu.solver = 'ode4' for fixed step & simu.solver = 'ode45' for variable step 
 simu.dt = 0.1; 	
-
 
 %% Wave Information
 % Regular Waves  
@@ -18,10 +17,10 @@ simu.dt = 0.1;
 
 %Irregular Waves using PM Spectrum
 waves = waveClass('irregular');
-waves.height = 2.5;
-waves.period = 8;
+waves.height = waveHeight;
+waves.period = wavePeriod;
 waves.spectrumType = 'PM';
-waves.phaseSeed= 2;
+waves.phaseSeed = waveSeed;
 
 %The equal energy formulation speeds up the irregular wave simulation time
 % by reducing the number of frequencies the wave train is defined by,

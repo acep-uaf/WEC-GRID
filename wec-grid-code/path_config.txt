@@ -1,4 +1,4 @@
-C:\Program Files\PTI\PSSE35\35.3
+C:\Program Files\PTI\PSSE35\35.5
 C:\Users\alexb\research\WEC-Sim
 C:\Users\alexb\research\WEC-GRID\input_files\W2G_RM3
 C:\Users\alexb\research\WEC-GRID\wec-grid-code

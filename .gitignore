@@ -121,3 +121,6 @@ slprj/
 */W2G_RM3/sim_figures/
 */R2G_NE5kW/sim_figures/
 
+# ignore database files
+*.db
+

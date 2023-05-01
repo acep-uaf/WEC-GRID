@@ -37,7 +37,7 @@ run('initializeWecSim');
 
 
 %% Run W2G sim
-sim(simu.simMechanicsFile, [], simset('SrcWorkspace','current'));
+sim(simu.simMechanicsFile, [], simset('SrcWorkspace', 'current'));
 
 %% Post-Processing
 

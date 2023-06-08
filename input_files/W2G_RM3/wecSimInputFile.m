@@ -89,7 +89,7 @@ ptoSim(1).directLinearGenerator.lambda_fd = 23;          % Flux linkage of the s
 ptoSim(1).directLinearGenerator.lambda_sq_0 = 0;
 ptoSim(1).directLinearGenerator.lambda_sd_0 = ptoSim.directLinearGenerator.lambda_fd;  % (recognizing that the d-axis is always aligned with the rotor magnetic axis                        
 ptoSim(1).directLinearGenerator.Rs = 0.29;              % Winding resistance [ohm]
-ptoSim(1).directLinearGenerator.Ls = 0.03;             % Inductance of the coil [H], per-phase inductance *3/2
+ptoSim(1).directLinearGenerator.Ls = 0.031;             % Inductance of the coil [H], per-phase inductance *3/2
 ptoSim(1).directLinearGenerator.theta_d_0 = 0;
 
 %TODO: Are there generator displacement limits? Is inertia important, or is
@@ -119,9 +119,30 @@ gsc.ki = 0;
 
 %% Onboard energy storage
 %energy storage system
-ess.Vdc_0 = gsc.Vmag*sqrt(2)*1.25; %V, 25% higher than grid voltage
-ess.C = 88; %F
+ess.Vdc_0 = gsc.Vmag*sqrt(2)*1.25; %V, nominal dc bus voltage. set to 25% higher than grid voltage
 ess.Vdc_del = ess.Vdc_0-gsc.Vmag*sqrt(2); %max deviation from nominal voltage. When determining this value, ensure (Vdc_nom - Vdc_del) > gsc.Vmag*sqrt(2) ?
+
+%specify storage type and energy capacity
+ess.storageType = "bat"; %"sc" for supercapacitor, "bat" for battery
+% ess.storageType = "sc"; %"sc" for supercapacitor, "bat" for battery
+
+ess.Ecap = 1e3; %total energy storage capacity, Wh
+
+%determines the model parameters based on storage type, capacity, and
+%nominal voltage
+if ess.storageType == "bat"
+    ess = ess_passive_bat_config(ess);
+
+else %for now assume if not bat, do sc
+    ess = ess_passive_sc_config(ess);
+
+end
+
+%update dc bus max voltage deviation if storage type is more restrictive
+ess.Vdc_del = min([ess.Vdc_del, (ess.Vdc_0 - ess.Vmin), (ess.Vmax - ess.Vdc_0)]);
+
+
+
 
 
 

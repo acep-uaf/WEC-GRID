@@ -149,9 +149,9 @@ class Wec_grid:
         eng.cd(wec_model_path)
         path = wec_sim_path  # Update to match your WEC-SIM source location
         eng.addpath(eng.genpath(path), nargout=0)
-        print("calling W2G")
         
         # Variables required to run w2gSim
+        print("calling W2G")
         eng.workspace['wecId'] = 1
         eng.workspace['simLength'] = 3600
         eng.workspace['Tsample'] = 300

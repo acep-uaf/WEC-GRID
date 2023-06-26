@@ -70,7 +70,6 @@ class WEC:
         self.Qmin = Qmin
 
 
-
 class Wec_grid:
     # def __init__(self, case, solver, wec_bus, software = "PSSe"):
 
@@ -273,7 +272,7 @@ class Wec_grid:
         # display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_comp.jpg"))
         # display(Image(filename="..\input_files\W2G_RM3\sim_figures\DClink_voltage.jpg"))
         print("calling PSSe formatting")
-        conn = sqlite3.connect('../input_files/WEC-SIM.db')
+        conn = sqlite3.connect('WEC-SIM.db')
         eng.eval("WECsim_to_PSSe_dataFormatter", nargout=0)
         print("sim complete")
 
@@ -541,7 +540,7 @@ class Wec_grid:
         """
         # Map Bus Types to colors and labels
         color_map = {1: 'lightblue', 2: 'lightgreen', 3: 'red'}
-        color_map_1 = {1: 'Blue', 2: 'Green', 3: 'Red'}
+        color_map_1 = {1: 'grey', 2: 'Green', 3: 'Red'}
         label_map = {1: 'PQ Bus', 2: 'PV Bus', 3: 'Swing Bus'}
 
         # If no dataframe is provided, use self.psse_dataframe
@@ -567,7 +566,7 @@ class Wec_grid:
             Q = node['data']['Q']
             angle = node['data']['angle']
             
-            node_info.value = f"Bus: {node['data']['id']} | Type: {label_map[node['data']['type']]} | P: {format(P, '.3g')} | Q: {format(Q, '.3g')} | Angle: {format(angle, '.3g')}"
+            node_info.value = f"Bus: {node['data']['id']} | Type: {label_map[node['data']['type']]} | P {format(P, '.3g')} | Q {format(Q, '.3g')} | Angle {format(angle, '.3g')}"
 
         G_cyto.on('node', 'click', node_click)
 
@@ -633,12 +632,15 @@ class Wec_grid:
         # Add the items to the legend
         legend.children = items + [node_info]
 
+        title = widgets.Label(value="Grid Viz")
+
         # Display the graph and the legend in a VBox
-        display(widgets.VBox([G_cyto, legend]))
+        display(widgets.VBox([title, G_cyto, legend]))
 
 
 
     def MiGrid_to_db(self):
+        # broken 6/26/23
         """
         Description:
         input: 
@@ -646,10 +648,10 @@ class Wec_grid:
         """
 
         # Connect to the database
-        conn = sqlite3.connect('../input_files/WEC-SIM.db')
+        conn = sqlite3.connect('WEC-SIM.db')
         c = conn.cursor()
 
-        directory_path = '../input_files/Run0/OutputData/'  # need to update this
+        #directory_path = '../input_files/Run0/OutputData/'  # need to update this
         file_patterns = [
             r"gen\d+PSet\d+Run\d+\.nc",  # Pattern for gen files
             r"wtg\d+PAvailSet\d+Run\d+",  # Pattern for wtg files
@@ -810,7 +812,7 @@ class Wec_grid:
         output:
         """
         # Connect to the database
-        conn = sqlite3.connect('../input_files/WEC-SIM.db') # need to update with dynamic location
+        conn = sqlite3.connect('WEC-SIM.db') # need to update with dynamic location
         #c = conn.cursor()
         for wec_num in self.wec_list:
             wec = pd.read_sql_query("SELECT * from WEC_output_{}".format(wec_num), conn)
@@ -825,7 +827,7 @@ class Wec_grid:
         output:
         """
         # Connect to the database
-        conn = sqlite3.connect('../input_files/WEC-SIM.db') # need to update with dynamic location
+        conn = sqlite3.connect('WEC-SIM.db') # need to update with dynamic location
         c = conn.cursor()
         # Drop all tables
         c.execute("SELECT name FROM sqlite_master WHERE type='table'")

@@ -14,6 +14,13 @@ import seaborn as sns
 import sqlite3
 import matplotlib.pyplot as plt
 import datetime
+import ipycytoscape
+import ipywidgets as widgets
+import pandas as pd
+from IPython.display import display
+import ipycytoscape
+import ipywidgets as widgets
+import json
 from datetime import datetime, timezone
 from datetime import datetime, timedelta
 
@@ -81,7 +88,7 @@ class Wec_grid:
         self.wec_data = {}
         self.psse_dataframe = pd.DataFrame()
         self.pypsa_dataframe = pd.DataFrame()
-        self.migrid_file_names = self.Migrid_file()
+        #self.migrid_file_names = self.Migrid_file()
         #self.wec_data = {}
         self.migrid_data = {}
 
@@ -526,31 +533,110 @@ class Wec_grid:
         self.psse_dataframe['P Load'] = p_load_df_list
         self.psse_dataframe['Q Load'] = q_load_df_list
 
-    def _psse_viz(self):
+    def viz(self, dataframe=None):
         """
         Description:
         input: 
         output:
         """
-        # https://github.com/jtrain/psse_sld_viewer
+        # Map Bus Types to colors and labels
+        color_map = {1: 'lightblue', 2: 'lightgreen', 3: 'red'}
+        color_map_1 = {1: 'Blue', 2: 'Green', 3: 'Red'}
+        label_map = {1: 'PQ Bus', 2: 'PV Bus', 3: 'Swing Bus'}
 
-        
-        ierr, (fromnumber, tonumber) = psspy.abrnint(
-            sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"])
-        ierr, (og_weights) = psspy.abrncplx(sid=-1, flag=3,
-                                            string=["RX"])  # Branch impedance, in pu
-        weights = map(abs, og_weights[0])
-        G = nx.DiGraph()
-        G.add_weighted_edges_from(zip(fromnumber, tonumber, weights))
-        plt.figure(1, figsize=(8, 8))
-        ax = plt.gca()
-        file_name = os.path.basename(self.case_file)
-        file = os.path.splitext(file_name)
-        ax.set_title('{} | Directed Graph of Branch impedance'.format(file[0]))
-        pos = nx.spring_layout(G, 1000)
-        nx.draw(G, pos, node_size=1000, node_color="#32a852",
-                font_size=14, edge_color="#444444", with_labels=True, ax=ax)
-        _ = ax.axis('off')
+        # If no dataframe is provided, use self.psse_dataframe
+        if dataframe is None:
+            dataframe = self.psse_dataframe
+
+        # Create a copy of the dataframe
+        dataframe_copy = dataframe.copy()
+
+        # Replace NaN values with a default value
+        dataframe_copy.fillna(0, inplace=True)
+
+        # Modify the dataframe copy to make sure all float values are within acceptable range
+        dataframe_copy.loc[:, ['P', 'Q', 'ANGLED']] = dataframe_copy.loc[:, ['P', 'Q', 'ANGLED']].clip(-1.0e100, 1.0e100)
+
+        # Create a cytoscape graph object
+        G_cyto = ipycytoscape.CytoscapeWidget()
+
+        # Function to handle click events
+        def node_click(node):
+            # Get P, Q and angle
+            P = node['data']['P']
+            Q = node['data']['Q']
+            angle = node['data']['angle']
+            
+            node_info.value = f"Bus: {node['data']['id']} | Type: {label_map[node['data']['type']]} | P: {format(P, '.3g')} | Q: {format(Q, '.3g')} | Angle: {format(angle, '.3g')}"
+
+        G_cyto.on('node', 'click', node_click)
+
+        G_cyto.max_zoom = 1.1
+        G_cyto.min_zoom = 0.5
+
+        # Add nodes to the graph
+        for index, row in dataframe_copy.iterrows():
+            node_data = {
+                "id": str(row['BUS_ID']),
+                "label": f"BUS: {row['BUS_ID']}",
+                "type": row['Type'],
+                "classes": color_map[row['Type']],
+                "P": row['P'],
+                "Q": row['Q'],
+                "angle": row['ANGLED']
+            }
+            node = ipycytoscape.Node(data=node_data)
+            G_cyto.graph.add_node(node)
+
+        # Add edges to the graph
+        ierr, (fromnumber, tonumber) = psspy.abrnint(sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"])
+        for index in range(len(fromnumber)):
+            edge_data = {"source": str(fromnumber[index]), "target": str(tonumber[index])}
+            edge = ipycytoscape.Edge(data=edge_data)
+            G_cyto.graph.add_edge(edge)
+
+        # Set graph style
+        G_cyto.set_style([
+            {
+                'selector': 'node',
+                'css': {
+                    'background-color': 'data(classes)',
+                    'label': 'data(label)',
+                    'text-wrap': 'wrap'
+                }
+            },
+            {
+                'selector': 'edge',
+                'style': {
+                    'width': 4,
+                    'line-color': '#9dbaea',
+                    'target-arrow-shape': 'none'
+                }
+            }
+        ])
+
+        # Create a box for the legend with a distinct outline
+        legend = widgets.VBox(layout=widgets.Layout(border='solid', padding='5px'))
+
+        # Create a list to store the legend items
+        items = []
+
+        # Create legend items
+        for bus_type, color in color_map_1.items():
+            color_box = widgets.Box(layout=widgets.Layout(width='20px', height='20px', background=color))
+            label = widgets.Label(value=f"{label_map[bus_type]} - {color}")
+            items.append(widgets.HBox([color_box, label]))
+
+        # Create a label to display the information
+        node_info = widgets.Label()
+
+        # Add the items to the legend
+        legend.children = items + [node_info]
+
+        # Display the graph and the legend in a VBox
+        display(widgets.VBox([G_cyto, legend]))
+
+
 
     def MiGrid_to_db(self):
         """

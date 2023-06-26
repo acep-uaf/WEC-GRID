@@ -1,1 +1,1 @@
-# __init__.py
+from .wec_grid import *

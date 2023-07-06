@@ -63,7 +63,7 @@ for i = 2:W2G_sample_size
 
 end
 
-path = "../WEC-SIM.db";
+path = "../../wec_grid/WEC-SIM.db";
 dbfile = fullfile(path);
 conn = sqlite(dbfile);
 %exec(conn, strcat("DELETE FROM WEC_output"));

@@ -59,7 +59,33 @@ import psspy
 
 
 class WEC:
+    """
+    This class represents a WEC (Wave Energy Converter).
+
+    Attributes:
+        ID (int): The ID of the WEC.
+        bus_location (str): The location of the bus.
+        model (str): The model of the WEC.
+        dataframe (DataFrame): The pandas DataFrame holding WEC data.
+        Pmax (float): The maximum P value, defaults to 9999.
+        Pmin (float): The minimum P value, defaults to -9999.
+        Qmax (float): The maximum Q value, defaults to 9999.
+        Qmin (float): The minimum Q value, defaults to -9999.
+    """
+
     def __init__(self, ID, model, bus_location, Pmax=9999, Pmin=-9999, Qmax=9999, Qmin=-9999):
+        """
+        The constructor for the WEC class.
+
+        Args:
+            ID (int): The ID of the WEC.
+            model (str): The model of the WEC.
+            bus_location (str): The location of the bus.
+            Pmax (float, optional): The maximum P value. Defaults to 9999.
+            Pmin (float, optional): The minimum P value. Defaults to -9999.
+            Qmax (float, optional): The maximum Q value. Defaults to 9999.
+            Qmin (float, optional): The minimum Q value. Defaults to -9999.
+        """
         self.ID = ID
         self.bus_location = bus_location
         self.model = model
@@ -69,6 +95,76 @@ class WEC:
         self.Qmax = Qmax
         self.Qmin = Qmin
 
+        # Try to load data from the database on initialization
+        if not self.pull_wec_data():
+            print("Data for WEC {} not found in the database.".format(self.ID))
+
+
+    def pull_wec_data(self):
+        """
+        Pulls WEC data from the database. If wec_num is provided, pulls data for that specific wec.
+
+        Args:
+            wec_num (int, optional): The number of the specific wec to pull data for.
+
+        Returns:
+            bool: True if the data pull was successful, False otherwise.
+        """
+        db_path = os.path.join(current_dir, "WEC-SIM.db")
+
+        # Check if the database file exists
+        if not os.path.exists(db_path):
+            print("Database does not exist. Creating new database here {}".format(db_path))
+            # You can create the database file here if needed
+            # For now, just exit the function
+            return False
+
+        # Connect to the database
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Check if the table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='WEC_output_{}'".format(self.ID))
+
+        # If the table doesn't exist, close the connection and return False
+        if cursor.fetchone() is None:
+            conn.close()
+            return False
+
+        # If the table exists, load the data into the dataframe, close the connection, and return True
+        else:
+            self.dataframe = pd.read_sql_query("SELECT * from WEC_output_{}".format(self.ID), conn)
+            conn.close()
+            return True
+        
+    # def pull_wec_data(self, wec_num=None):
+    #     """
+    #     Pulls WEC data from the database. If wec_num is provided, pulls data for that specific wec.
+
+    #     Args:
+    #         wec_num (int, optional): The number of the specific wec to pull data for.
+
+    #     Returns:
+    #         bool: True if the data pull was successful, False otherwise.
+    #     """
+    #     # Connect to the database
+    #     t = os.path.join(current_dir, "WEC-SIM.db")
+    #     conn = sqlite3.connect(os.path.join(current_dir, "WEC-SIM.db"))
+    #     cursor = conn.cursor()
+
+    #     # Check if the table exists
+    #     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='WEC_output_{}'".format(self.ID))
+
+    #     # If the table doesn't exist, close the connection and return False
+    #     if cursor.fetchone() is None:
+    #         conn.close()
+    #         return False
+
+    #     # If the table exists, load the data into the dataframe, close the connection, and return True
+    #     else:
+    #         self.dataframe = pd.read_sql_query("SELECT * from WEC_output_{}".format(self.ID), conn)
+    #         conn.close()
+    #         return True
 
 class Wec_grid:
     # def __init__(self, case, solver, wec_bus, software = "PSSe"):
@@ -90,7 +186,6 @@ class Wec_grid:
         #self.migrid_file_names = self.Migrid_file()
         #self.wec_data = {}
         self.migrid_data = {}
-
 
     def initalize_psse(self, solver):
         """
@@ -156,14 +251,17 @@ class Wec_grid:
         self.pypsa_history[-1] = self.pypsa_dataframe
         self.pypsa_object_history[-1] = self.pypsa_object
 
-
     def add_wec(self, wec):
         self.wec_list.append(wec)
         for w in self.wec_list:
             ierr = psspy.machine_data_2(w.bus_location, '1', realar3=w.Qmax, realar4=w.Qmin, realar5=w.Pmax, realar6=w.Pmin) # adjust activate power 
             if ierr > 0:
                 raise Exception('Error adding WEC')
-
+            
+    def create_wec(self, ID, model, bus_location, run_sim=True):
+        self.wec_list.append(WEC(ID, model, bus_location, run_sim))
+        self.psse_dataframe.loc[self.psse_dataframe['BUS_ID'] == bus_location, 'Type'] = 4
+        temp = 0
 
     def _psse_clear(self):
         """
@@ -238,43 +336,10 @@ class Wec_grid:
         time = 3.0 / 60.0
         psspy.run(tpause=time)
 
-    def run_WEC_Sim(self, wec_id, sim_length, Tsample, waveHeight, wavePeriod, waveSeed):
-        """
-        Description: This function runs the WEC-SIM simulation for the model in the input folder.
-        input: 
-            wec_id = Id number for your WEC (INT)
-            sim_length = simulation length in seconds (INT) 
-            Tsample = The sample resolution in seconds (INT)
-            waveHeight = wave height of the sim (FLOAT) // 2.5 is the default
-            wavePeriod = wave period of the sim (FLOAT) // 8 is the default
-            waveSeed = seed number for the simulation // np.random.randint(99999999999)
-
-        output: output is the the SQL database, you can query the data with "SELECT * from WEC_output_{wec_id}"
-        """
-        eng = matlab.engine.start_matlab()
-        print("Matlab Engine estbalished")
-        eng.cd(wec_model_path)
-        path = wec_sim_path  # Update to match your WEC-SIM source location
-        eng.addpath(eng.genpath(path), nargout=0)
-        print("calling W2G")
-
-        # Variables required to run w2gSim
-        eng.workspace['wecId'] = wec_id
-        eng.workspace['simLength'] = sim_length
-        eng.workspace['Tsample'] = Tsample
-        eng.workspace['waveHeight'] = waveHeight
-        eng.workspace['wavePeriod'] = wavePeriod
-        eng.workspace['waveSeed'] = waveSeed
-        eng.eval(
-            "m2g_out = w2gSim(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);", nargout=0)
-        print("displaying simulation plots")
-        # display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_Qgrid.jpg"))
-        # display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_comp.jpg"))
-        # display(Image(filename="..\input_files\W2G_RM3\sim_figures\DClink_voltage.jpg"))
-        print("calling PSSe formatting")
-        conn = sqlite3.connect('WEC-SIM.db')
-        eng.eval("WECsim_to_PSSe_dataFormatter", nargout=0)
-        print("sim complete")
+    def run_WEC_Sim(self, sim_config):
+        for wec in self.wec_list:
+            if wec.ID == sim_config["wec_id"]:
+                wec.run_WEC_Sim(sim_config)
 
     def _psse_run_powerflow(self, solver):
         """
@@ -532,40 +597,32 @@ class Wec_grid:
         self.psse_dataframe['P Load'] = p_load_df_list
         self.psse_dataframe['Q Load'] = q_load_df_list
 
-    def viz(self, dataframe=None):
-        """
-        Description:
-        input: 
-        output:
-        """
-        # Map Bus Types to colors and labels
-        color_map = {1: 'lightblue', 2: 'lightgreen', 3: 'red'}
-        color_map_1 = {1: 'grey', 2: 'Green', 3: 'Red'}
-        label_map = {1: 'PQ Bus', 2: 'PV Bus', 3: 'Swing Bus'}
 
-        # If no dataframe is provided, use self.psse_dataframe
+    def viz(self, dataframe=None):
+        from ipywidgets import Dropdown
+        import ipywidgets as widgets
+
+        # Map Bus Types to colors and labels
+        color_map = {1: 'grey', 2: 'lightgreen', 3: 'red', 4: 'lightblue'} 
+        color_map_1 = {1: 'grey', 2: 'Green', 3: 'Red', 4: 'Blue'} 
+        label_map = {1: 'PQ Bus', 2: 'PV Bus', 3: 'Swing Bus', 4: 'WEC Bus'} 
+
         if dataframe is None:
             dataframe = self.psse_dataframe
 
-        # Create a copy of the dataframe
         dataframe_copy = dataframe.copy()
 
-        # Replace NaN values with a default value
         dataframe_copy.fillna(0, inplace=True)
 
-        # Modify the dataframe copy to make sure all float values are within acceptable range
         dataframe_copy.loc[:, ['P', 'Q', 'ANGLED']] = dataframe_copy.loc[:, ['P', 'Q', 'ANGLED']].clip(-1.0e100, 1.0e100)
 
-        # Create a cytoscape graph object
         G_cyto = ipycytoscape.CytoscapeWidget()
 
-        # Function to handle click events
         def node_click(node):
-            # Get P, Q and angle
             P = node['data']['P']
             Q = node['data']['Q']
             angle = node['data']['angle']
-            
+
             node_info.value = f"Bus: {node['data']['id']} | Type: {label_map[node['data']['type']]} | P {format(P, '.3g')} | Q {format(Q, '.3g')} | Angle {format(angle, '.3g')}"
 
         G_cyto.on('node', 'click', node_click)
@@ -573,13 +630,12 @@ class Wec_grid:
         G_cyto.max_zoom = 1.1
         G_cyto.min_zoom = 0.5
 
-        # Add nodes to the graph
         for index, row in dataframe_copy.iterrows():
             node_data = {
                 "id": str(row['BUS_ID']),
                 "label": f"BUS: {row['BUS_ID']}",
                 "type": row['Type'],
-                "classes": color_map[row['Type']],
+                "classes": color_map[row['Type']], 
                 "P": row['P'],
                 "Q": row['Q'],
                 "angle": row['ANGLED']
@@ -587,14 +643,12 @@ class Wec_grid:
             node = ipycytoscape.Node(data=node_data)
             G_cyto.graph.add_node(node)
 
-        # Add edges to the graph
         ierr, (fromnumber, tonumber) = psspy.abrnint(sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"])
         for index in range(len(fromnumber)):
             edge_data = {"source": str(fromnumber[index]), "target": str(tonumber[index])}
             edge = ipycytoscape.Edge(data=edge_data)
             G_cyto.graph.add_edge(edge)
 
-        # Set graph style
         G_cyto.set_style([
             {
                 'selector': 'node',
@@ -605,37 +659,65 @@ class Wec_grid:
                 }
             },
             {
+                'selector': 'node.hide',
+                'style': {
+                    'display': 'none'
+                }
+            },
+            {
                 'selector': 'edge',
                 'style': {
-                    'width': 4,
+                    'width':4,
                     'line-color': '#9dbaea',
                     'target-arrow-shape': 'none'
                 }
             }
         ])
 
-        # Create a box for the legend with a distinct outline
-        legend = widgets.VBox(layout=widgets.Layout(border='solid', padding='5px'))
-
-        # Create a list to store the legend items
         items = []
 
-        # Create legend items
         for bus_type, color in color_map_1.items():
             color_box = widgets.Box(layout=widgets.Layout(width='20px', height='20px', background=color))
-            label = widgets.Label(value=f"{label_map[bus_type]} - {color}")
+
+            description = {
+                1: ' - Load bus (PQ)',
+                2: ' - Generator bus (PV)',
+                3: ' - Reference bus (Swing)',
+                4: ' - Wave Energy Converter bus (WEC)',
+            }[bus_type]
+
+            label = widgets.Label(value=f"{label_map[bus_type]}{description}")
+
             items.append(widgets.HBox([color_box, label]))
 
-        # Create a label to display the information
+        legend_title = widgets.Label(value='Legend:', layout=widgets.Layout(margin='0 0 5px 0'))
+
+        legend = widgets.VBox([legend_title] + items, layout=widgets.Layout(border='solid', padding='5px'))
+
         node_info = widgets.Label()
 
-        # Add the items to the legend
-        legend.children = items + [node_info]
+        bus_type_dropdown = Dropdown(
+            options=[('All', 0)] + [(label_map[i], i) for i in range(1, 5)], 
+            value=0,
+            description='Bus Type:',
+        )
 
-        title = widgets.Label(value="Grid Viz")
+        def filter_nodes(bus_type):
+            if bus_type == 0:
+                for node in G_cyto.graph.nodes:
+                    node.classes = color_map[int(node.data['type'])]
+            else:
+                for node in G_cyto.graph.nodes:
+                    if int(node.data['type']) == bus_type:
+                        node.classes = color_map[bus_type]
+                    else:
+                        node.classes = 'hide'
 
-        # Display the graph and the legend in a VBox
-        display(widgets.VBox([title, G_cyto, legend]))
+        filter_nodes(bus_type_dropdown.value)
+
+        bus_type_dropdown.observe(lambda change: filter_nodes(change.new), names='value')
+
+        display(widgets.VBox([bus_type_dropdown, G_cyto, legend, node_info]))
 
 
 
@@ -805,19 +887,24 @@ class Wec_grid:
             if ierr > 0:
                 raise Exception('Error in AC injection')
 
-    def pull_wec_data(self):
+    def pull_wec_data(self, wec_num=None):
         """
-        Description:
-        input: 
-        output:
+        Description: Pulls WEC data from the database. If wec_num is provided, pulls data for that specific wec.
+        input: wec_num (optional) - the number of the specific wec to pull data for
+        output: None
         """
         # Connect to the database
-        conn = sqlite3.connect('WEC-SIM.db') # need to update with dynamic location
-        #c = conn.cursor()
-        for wec_num in self.wec_list:
-            wec = pd.read_sql_query("SELECT * from WEC_output_{}".format(wec_num), conn)
-            self.wec_data[wec_num] = wec
-            #elf.wec_data[i] = wec
+        conn = sqlite3.connect(str(current_dir) + "\\WEC-SIM.db") # need to update with dynamic location
+        
+        #temp = os.getcwd()
+
+        # If wec_num is provided, use it to create a single-element list
+        wec_numbers = [wec_num] if wec_num is not None else self.wec_list
+        
+        for num in wec_numbers:
+            wec = pd.read_sql_query("SELECT * from WEC_output_{}".format(num), conn)
+            self.wec_data[num] = wec
+
         conn.close()
 
     def clear_database(self):

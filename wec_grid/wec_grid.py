@@ -137,6 +137,44 @@ class WEC:
             conn.close()
             return True
         
+    def run_WEC_Sim(self, wec_id, sim_length, Tsample, waveHeight, wavePeriod, waveSeed):
+        """
+        Description: This function runs the WEC-SIM simulation for the model in the input folder.
+        input: 
+            wec_id = Id number for your WEC (INT)
+            sim_length = simulation length in seconds (INT) 
+            Tsample = The sample resolution in seconds (INT)
+            waveHeight = wave height of the sim (FLOAT) // 2.5 is the default
+            wavePeriod = wave period of the sim (FLOAT) // 8 is the default
+            waveSeed = seed number for the simulation // np.random.randint(99999999999)
+
+        output: output is the the SQL database, you can query the data with "SELECT * from WEC_output_{wec_id}"
+        """
+        eng = matlab.engine.start_matlab()
+        print("Matlab Engine estbalished")
+        eng.cd(wec_model_path)
+        path = wec_sim_path  # Update to match your WEC-SIM source location
+        eng.addpath(eng.genpath(path), nargout=0)
+        print("calling W2G")
+
+        # Variables required to run w2gSim
+        eng.workspace['wecId'] = wec_id
+        eng.workspace['simLength'] = sim_length
+        eng.workspace['Tsample'] = Tsample
+        eng.workspace['waveHeight'] = waveHeight
+        eng.workspace['wavePeriod'] = wavePeriod
+        eng.workspace['waveSeed'] = waveSeed
+        eng.eval(
+            "m2g_out = w2gSim(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);", nargout=0)
+        print("displaying simulation plots")
+        # display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_Qgrid.jpg"))
+        # display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_comp.jpg"))
+        # display(Image(filename="..\input_files\W2G_RM3\sim_figures\DClink_voltage.jpg"))
+        print("calling PSSe formatting")
+        conn = sqlite3.connect('WEC-SIM.db')
+        eng.eval("WECsim_to_PSSe_dataFormatter", nargout=0)
+        print("sim complete")
+        
     # def pull_wec_data(self, wec_num=None):
     #     """
     #     Pulls WEC data from the database. If wec_num is provided, pulls data for that specific wec.
@@ -680,10 +718,10 @@ class Wec_grid:
             color_box = widgets.Box(layout=widgets.Layout(width='20px', height='20px', background=color))
 
             description = {
-                1: ' - Load bus (PQ)',
-                2: ' - Generator bus (PV)',
-                3: ' - Reference bus (Swing)',
-                4: ' - Wave Energy Converter bus (WEC)',
+                1: ' - Grey',
+                2: ' - Green',
+                3: ' - Red',
+                4: ' - Blue',
             }[bus_type]
 
             label = widgets.Label(value=f"{label_map[bus_type]}{description}")

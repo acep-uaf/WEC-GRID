@@ -174,12 +174,14 @@ class CEC:
 
         # Variables required to run w2gSim
         eng.workspace['cecId'] = self.ID
-        # eng.workspace['simLength'] = config["sim_length"]  # Uncomment if needed
+        eng.workspace['simLength'] = config["sim_length"]  # Uncomment if needed
 
-        eng.eval("NewEnergy_20_ohms_100hz;", nargout=0)
-        eng.eval("r2g_ne5kW_init;", nargout=0)
-        eng.eval("sim('R2G_ss_NE5kW_R2019a.slx', [], simset('SrcWorkspace', 'current'));", nargout=0)
-        eng.eval(f"m2g_out.cecId = {self.ID};", nargout=0)
+        eng.eval("m2g_out = c2gSim(cecId, simLength);", nargout=0)
+
+        # eng.eval("NewEnergy_20_ohms_100hz;", nargout=0)
+        # eng.eval("r2g_ne5kW_init;", nargout=0)
+        # eng.eval("sim('R2G_ss_NE5kW_R2019a.slx', [], simset('SrcWorkspace', 'current'));", nargout=0)
+        #eng.eval(f"m2g_out.cecId = {self.ID};", nargout=0)
         # eng.eval("c2gSim(cecId,simLength);", nargout=0)  # Uncomment if needed
         eng.workspace['DB_PATH'] = DB_PATH
         eng.eval("CECsim_to_PSSe_dataFormatter", nargout=0)
@@ -265,7 +267,7 @@ class WEC:
         for key, value in config.items():
             eng.workspace[key] = value
 
-        eng.workspace['DB_PATH'] = DB_PATH
+        eng.workspace['DB_PATH'] = DB_PATH  # move to front end? 
         eng.eval("m2g_out = w2gSim_LUPA(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);", nargout=0)
         eng.eval("WECsim_to_PSSe_dataFormatter", nargout=0)
         print("Sim Completed")

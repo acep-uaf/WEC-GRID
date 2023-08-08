@@ -1,10 +1,19 @@
-# Wec_grid_class
+'''
+WEC-GRID source code
+Author: Alexander Barajas-Ritchie
+'''
+
+# Standard Libraries
 import os
 import sys
+import re
+import time
+import json
+from datetime import datetime, timezone, timedelta
+
+# Third-party Libraries
 import pandas as pd
 import numpy as np
-import re
-import datetime
 import netCDF4
 import pypsa
 import pypower.api as pypower
@@ -13,54 +22,68 @@ import networkx as nx
 import seaborn as sns
 import sqlite3
 import matplotlib.pyplot as plt
-import datetime
 import ipycytoscape
 import ipywidgets as widgets
-import pandas as pd
 from IPython.display import display
-import ipycytoscape
-import ipywidgets as widgets
-import json
-from datetime import datetime, timezone
-from datetime import datetime, timedelta
-
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-
-paths = []
-current_dir = os.path.dirname(__file__)
-with open('{}\\path_config.txt'.format(current_dir), 'r') as fp:
-    while 1:
-        line = fp.readline()
-        if len(line) == 0:  # end of file break
-            break
-        temp = line.split('\n')
-        paths.append(r'{}'.format(temp[0])) #will allow spaces in path strings
-
-psse_path = paths[0]
-wec_sim_path = paths[1]
-wec_model_path = paths[2]
-wec_grid_class_path = paths[3]
-wec_grid_folder = paths[4]
-
-# Path stuff
-
-sys.path.append(psse_path + "\\PSSPY37")
-sys.path.append(psse_path + "\\PSSBIN")
-sys.path.append(psse_path + "\\PSSLIB")
-sys.path.append(psse_path + "\\EXAMPLE")
-sys.path.append(psse_path + "\\PSSPY37")
-os.environ['PATH'] = (psse_path + "\\PSSPY37;" + psse_path + "\\PSSBIN;" + psse_path + "\\EXAMPLE;" + os.environ['PATH'])
-
-
-import psse35
-psse35.set_minor(3)
-import psspy
 
 
 
-class WEC:
+def dbQuery(query, parameters=(), return_type='cursor'):
     """
-    This class represents a WEC (Wave Energy Converter).
+    Execute a given SQL query and return the response.
+
+    Args:
+        query (str): SQL query to be executed.
+        parameters (tuple, optional): Parameters for the SQL query. Defaults to ().
+        return_type (str, optional): Return type can be 'cursor' or 'df'. Defaults to 'cursor'.
+
+    Returns:
+        sqlite3.Cursor or pd.DataFrame: Depending on return_type, returns a cursor object or a dataframe.
+    """
+    
+    with SQLiteConnection(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, parameters)
+        
+        if return_type == 'df':
+            return pd.read_sql_query(query, conn, params=parameters)
+        else:
+            return cursor.fetchall()
+
+
+def read_paths():
+    path_config_file = os.path.join(CURR_DIR, 'path_config.txt')
+    path_names = ["psse", "wec_sim", "wec_model", "wec_grid_class", "wec_grid_folder"]
+    
+    with open(path_config_file, 'r') as fp:
+        return dict(zip(path_names, map(str.strip, fp.readlines())))
+
+# Global Constants
+CURR_DIR = os.path.dirname(__file__)
+DB_NAME = "WEC-GRID.db"
+DB_PATH = os.path.join(CURR_DIR, DB_NAME)
+PATHS = read_paths()
+
+
+class SQLiteConnection:
+    def __init__(self, db_name):
+        self.db_name = db_name
+        self.conn = None
+
+    def __enter__(self):
+        self.conn = sqlite3.connect(self.db_name)
+        return self.conn  # return connection object
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            self.conn.commit()
+        else:
+            self.conn.rollback()
+        self.conn.close()
+
+class CEC:
+    """
+    This class represents a CEC (Current Energy Converter).
 
     Attributes:
         ID (int): The ID of the WEC.
@@ -78,7 +101,7 @@ class WEC:
         The constructor for the WEC class.
 
         Args:
-            ID (int): The ID of the WEC.
+            ID (int): The ID of the CEC.
             model (str): The model of the WEC.
             bus_location (str): The location of the bus.
             Pmax (float, optional): The maximum P value. Defaults to 9999.
@@ -96,9 +119,103 @@ class WEC:
         self.Qmin = Qmin
 
         # Try to load data from the database on initialization
-        if not self.pull_wec_data():
-            print("Data for WEC {} not found in the database.".format(self.ID))
+        if not self.pull_cec_data():
+            print("Data for CEC {} not found in the database.".format(self.ID))
 
+    def pull_cec_data(self):
+        """
+        Pulls WEC data from the database. If wec_num is provided, pulls data for that specific wec.
+
+        Args:
+            wec_num (int, optional): The number of the specific wec to pull data for.
+
+        Returns:
+            bool: True if the data pull was successful, False otherwise.
+        """
+
+        # Check if the database file exists
+        if not os.path.exists(DB_PATH):
+            print("Database does not exist. Creating new database here {}".format(DB_PATH))
+            # You can create the database file here if needed
+            # For now, just exit the function
+            return False
+
+        # Check if the table exists
+        table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='CEC_output_{}'".format(self.ID)
+
+        table_check_result = dbQuery(table_check_query)
+
+        if not table_check_result or table_check_result[0][0] != 'CEC_output_{}'.format(self.ID):
+            return False
+
+        data_query = "SELECT * from CEC_output_{}".format(self.ID)
+        self.dataframe = dbQuery(data_query, return_type='df')
+        
+        return True
+
+        
+    def CEC_Sim(self, config):
+
+        # Using the context manager for the SQLite connection.
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            
+            table_name = f"CEC_output_{self.ID}"
+            drop_table_query = f"DROP TABLE IF EXISTS {table_name};"
+
+            cursor.execute(drop_table_query)
+            conn.commit()
+
+        eng = matlab.engine.start_matlab()
+        eng.cd(os.path.join(PATHS["wec_model"], self.model))
+        #path = wec_sim_path  # Update to match your WEC-SIM source location
+        eng.addpath(eng.genpath(PATHS["wec_sim"]), nargout=0)
+        print(f"Running {self.model}")
+
+        # Variables required to run w2gSim
+        eng.workspace['cecId'] = self.ID
+        # eng.workspace['simLength'] = config["sim_length"]  # Uncomment if needed
+
+        eng.eval("NewEnergy_20_ohms_100hz;", nargout=0)
+        eng.eval("r2g_ne5kW_init;", nargout=0)
+        eng.eval("sim('R2G_ss_NE5kW_R2019a.slx', [], simset('SrcWorkspace', 'current'));", nargout=0)
+        eng.eval(f"m2g_out.cecId = {self.ID};", nargout=0)
+        # eng.eval("c2gSim(cecId,simLength);", nargout=0)  # Uncomment if needed
+        eng.workspace['DB_PATH'] = DB_PATH
+        eng.eval("CECsim_to_PSSe_dataFormatter", nargout=0)
+        print("Sim Completed")
+
+        # Using dbQuery to fetch the results and put them into the dataframe.
+        data_query = f"SELECT * from CEC_output_{self.ID}"
+        self.dataframe = dbQuery(data_query, return_type='df')
+
+class WEC:
+    """
+    This class represents a WEC (Wave Energy Converter).
+
+    Attributes:
+        ID (int): The ID of the WEC.
+        bus_location (str): The location of the bus.
+        model (str): The model of the WEC.
+        dataframe (DataFrame): The pandas DataFrame holding WEC data.
+        Pmax (float): The maximum P value, defaults to 9999.
+        Pmin (float): The minimum P value, defaults to -9999.
+        Qmax (float): The maximum Q value, defaults to 9999.
+        Qmin (float): The minimum Q value, defaults to -9999.
+    """
+
+    def __init__(self, ID, model, bus_location, Pmax=9999, Pmin=-9999, Qmax=9999, Qmin=-9999):
+        self.ID = ID
+        self.bus_location = bus_location
+        self.model = model
+        self.dataframe = pd.DataFrame()
+        self.Pmax = Pmax
+        self.Pmin = Pmin
+        self.Qmax = Qmax
+        self.Qmin = Qmin
+
+        if not self.pull_wec_data():
+            print(f"Data for WEC {self.ID} not found in the database.")
 
     def pull_wec_data(self):
         """
@@ -110,34 +227,18 @@ class WEC:
         Returns:
             bool: True if the data pull was successful, False otherwise.
         """
-        db_path = os.path.join(current_dir, "WEC-SIM.db")
 
-        # Check if the database file exists
-        if not os.path.exists(db_path):
-            print("Database does not exist. Creating new database here {}".format(db_path))
-            # You can create the database file here if needed
-            # For now, just exit the function
+        table_check_query = "SELECT name FROM sqlite_master WHERE type='table' AND name='WEC_output_{}'".format(self.ID)
+        table_check_result = dbQuery(table_check_query)
+
+        if not table_check_result or table_check_result[0][0] != f'WEC_output_{self.ID}':
             return False
 
-        # Connect to the database
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        # Check if the table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='WEC_output_{}'".format(self.ID))
-
-        # If the table doesn't exist, close the connection and return False
-        if cursor.fetchone() is None:
-            conn.close()
-            return False
-
-        # If the table exists, load the data into the dataframe, close the connection, and return True
-        else:
-            self.dataframe = pd.read_sql_query("SELECT * from WEC_output_{}".format(self.ID), conn)
-            conn.close()
-            return True
-        
-    def run_WEC_Sim(self, wec_id, sim_length, Tsample, waveHeight, wavePeriod, waveSeed):
+        data_query = f"SELECT * from WEC_output_{self.ID}"
+        self.dataframe = dbQuery(data_query, return_type='df')
+        return True
+    
+    def WEC_Sim(self, config):
         """
         Description: This function runs the WEC-SIM simulation for the model in the input folder.
         input: 
@@ -150,62 +251,32 @@ class WEC:
 
         output: output is the the SQL database, you can query the data with "SELECT * from WEC_output_{wec_id}"
         """
+                
+        table_name = f"WEC_output_{self.ID}"
+        drop_table_query = f"DROP TABLE IF EXISTS {table_name};"
+        dbQuery(drop_table_query)
+
         eng = matlab.engine.start_matlab()
-        print("Matlab Engine estbalished")
-        eng.cd(wec_model_path)
-        path = wec_sim_path  # Update to match your WEC-SIM source location
-        eng.addpath(eng.genpath(path), nargout=0)
-        print("calling W2G")
+        eng.cd(os.path.join(PATHS["wec_model"], self.model))
+        eng.addpath(eng.genpath(PATHS["wec_sim"]), nargout=0)
+        print(f"Running {self.model}")
 
-        # Variables required to run w2gSim
-        eng.workspace['wecId'] = wec_id
-        eng.workspace['simLength'] = sim_length
-        eng.workspace['Tsample'] = Tsample
-        eng.workspace['waveHeight'] = waveHeight
-        eng.workspace['wavePeriod'] = wavePeriod
-        eng.workspace['waveSeed'] = waveSeed
-        eng.eval(
-            "m2g_out = w2gSim(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);", nargout=0)
-        print("displaying simulation plots")
-        # display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_Qgrid.jpg"))
-        # display(Image(filename="..\input_files\W2G_RM3\sim_figures\Pgen_Pgrid_comp.jpg"))
-        # display(Image(filename="..\input_files\W2G_RM3\sim_figures\DClink_voltage.jpg"))
-        print("calling PSSe formatting")
-        conn = sqlite3.connect('WEC-SIM.db')
+        eng.workspace['wecId'] = self.ID
+        for key, value in config.items():
+            eng.workspace[key] = value
+
+        eng.workspace['DB_PATH'] = DB_PATH
+        eng.eval("m2g_out = w2gSim_LUPA(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);", nargout=0)
         eng.eval("WECsim_to_PSSe_dataFormatter", nargout=0)
-        print("sim complete")
-        
-    # def pull_wec_data(self, wec_num=None):
-    #     """
-    #     Pulls WEC data from the database. If wec_num is provided, pulls data for that specific wec.
+        print("Sim Completed")
+        time.sleep(5)
 
-    #     Args:
-    #         wec_num (int, optional): The number of the specific wec to pull data for.
-
-    #     Returns:
-    #         bool: True if the data pull was successful, False otherwise.
-    #     """
-    #     # Connect to the database
-    #     t = os.path.join(current_dir, "WEC-SIM.db")
-    #     conn = sqlite3.connect(os.path.join(current_dir, "WEC-SIM.db"))
-    #     cursor = conn.cursor()
-
-    #     # Check if the table exists
-    #     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='WEC_output_{}'".format(self.ID))
-
-    #     # If the table doesn't exist, close the connection and return False
-    #     if cursor.fetchone() is None:
-    #         conn.close()
-    #         return False
-
-    #     # If the table exists, load the data into the dataframe, close the connection, and return True
-    #     else:
-    #         self.dataframe = pd.read_sql_query("SELECT * from WEC_output_{}".format(self.ID), conn)
-    #         conn.close()
-    #         return True
+        data_query = f"SELECT * from WEC_output_{self.ID}"
+        self.dataframe = dbQuery(data_query, return_type='df')
 
 class Wec_grid:
-    # def __init__(self, case, solver, wec_bus, software = "PSSe"):
+    
+    psspy = None
 
     def __init__(self, case):
         """
@@ -218,12 +289,13 @@ class Wec_grid:
         self.case_file = case
         self.softwares = [] 
         self.wec_list = [] # list 
+        self.cec_list = [] # list 
         self.wec_data = {}
         self.psse_dataframe = pd.DataFrame()
         self.pypsa_dataframe = pd.DataFrame()
         #self.migrid_file_names = self.Migrid_file()
         #self.wec_data = {}
-        self.migrid_data = {}
+
 
     def initalize_psse(self, solver):
         """
@@ -232,7 +304,19 @@ class Wec_grid:
             solver: the solver you want to use supported by PSSe, "fnsl" is a good default (str)
         output: None
         """
-        psspy.psseinit(50)
+        os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+        psse_path = PATHS['psse']
+        sys.path.extend([os.path.join(psse_path, subdir) for subdir in ["PSSPY37", "PSSBIN", "PSSLIB", "EXAMPLE"]])
+        os.environ['PATH'] = os.path.join(psse_path, "PSSPY37") + ";" + os.path.join(psse_path, "PSSBIN") + ";" + os.path.join(psse_path, "EXAMPLE") + ";" + os.environ['PATH']
+
+        import psse35
+        psse35.set_minor(3)
+        import psspy
+        Wec_grid.psspy = psspy
+
+        Wec_grid.psspy.report_output(islct=2, filarg="NUL", options=[0])  # Discards output
+
+        Wec_grid.psspy.psseinit(50)
         self.softwares.append("psse")
         self.psse_history = {}
         self.lst_param = ['BASE', 'PU', 'ANGLED', 'P', 'Q']
@@ -240,16 +324,16 @@ class Wec_grid:
         self.dynamic_case_file = ""
 
         #self.psse_dataframe = pd.DataFrame()
-        self._i = psspy.getdefaultint()
-        self._f = psspy.getdefaultreal()
-        self._s = psspy.getdefaultchar()
+        self._i = Wec_grid.psspy.getdefaultint()
+        self._f = Wec_grid.psspy.getdefaultreal()
+        self._s = Wec_grid.psspy.getdefaultchar()
 
         if self.case_file.endswith('.sav'):
-            psspy.case(self.case_file)
+            Wec_grid.psspy.case(self.case_file)
         elif self.case_file.endswith('.raw'):
-            psspy.read(1, self.case_file)
+            Wec_grid.psspy.read(1, self.case_file)
         elif self.case_file.endswith('.RAW'):
-            psspy.read(1, self.case_file)
+            Wec_grid.psspy.read(1, self.case_file)
         self._psse_run_powerflow(self.solver)
 
         self.psse_history[-1] = self.psse_dataframe
@@ -292,14 +376,17 @@ class Wec_grid:
     def add_wec(self, wec):
         self.wec_list.append(wec)
         for w in self.wec_list:
-            ierr = psspy.machine_data_2(w.bus_location, '1', realar3=w.Qmax, realar4=w.Qmin, realar5=w.Pmax, realar6=w.Pmin) # adjust activate power 
+            ierr = Wec_grid.psspy.machine_data_2(w.bus_location, '1', realar3=w.Qmax, realar4=w.Qmin, realar5=w.Pmax, realar6=w.Pmin) # adjust activate power 
             if ierr > 0:
                 raise Exception('Error adding WEC')
             
     def create_wec(self, ID, model, bus_location, run_sim=True):
         self.wec_list.append(WEC(ID, model, bus_location, run_sim))
         self.psse_dataframe.loc[self.psse_dataframe['BUS_ID'] == bus_location, 'Type'] = 4
-        temp = 0
+
+    def create_cec(self, ID, model, bus_location, run_sim=True):
+        self.cec_list.append(CEC(ID, model, bus_location, run_sim))
+        self.psse_dataframe.loc[self.psse_dataframe['BUS_ID'] == bus_location, 'Type'] = 4
 
     def _psse_clear(self):
         """
@@ -312,7 +399,7 @@ class Wec_grid:
         self.psse_dataframe = pd.DataFrame()
         self.history = {}
         # initialization functions
-        psspy.read(1, self.case_file)
+        Wec_grid.psspy.read(1, self.case_file)
         self.run_powerflow(self.solver)
         # program variables
         #self.psse_history['Start'] = self.psse_dataframe
@@ -329,35 +416,35 @@ class Wec_grid:
             self.c = input("Dynamic File location")
 
         # Convert loads (3 step process):
-        psspy.conl(-1, 1, 1)
+        Wec_grid.psspy.conl(-1, 1, 1)
 
-        psspy.conl(sid=-1,
+        Wec_grid.psspy.conl(sid=-1,
                    all=1,
                    apiopt=2,
                    status=[0, 0],
                    loadin=[100, 0, 0, 100]
                    )
 
-        psspy.conl(-1, 1, 3)
+        Wec_grid.psspy.conl(-1, 1, 3)
 
         # Convert generators:
-        psspy.cong()
+        Wec_grid.psspy.cong()
 
         # Solve for dynamics
-        psspy.ordr()
-        psspy.fact()
-        psspy.tysl()
+        Wec_grid.psspy.ordr()
+        Wec_grid.psspy.fact()
+        Wec_grid.psspy.tysl()
         # Save converted case
         case_root = os.path.splitext(self.case_file)[0]
-        psspy.save(case_root + ".sav")
+        Wec_grid.psspy.save(case_root + ".sav")
 
-        psspy.dyre_new(dyrefile=self.dynamic_case_file)
+        Wec_grid.psspy.dyre_new(dyrefile=self.dynamic_case_file)
 
         # Add channels by subsystem
         #   BUS VOLTAGE
-        psspy.chsb(sid=0, all=1, status=[-1, -1, -1, 1, 13, 0])
+        Wec_grid.psspy.chsb(sid=0, all=1, status=[-1, -1, -1, 1, 13, 0])
         #   MACHINE SPEED
-        psspy.chsb(sid=0, all=1, status=[-1, -1, -1, 1, 7, 0])
+        Wec_grid.psspy.chsb(sid=0, all=1, status=[-1, -1, -1, 1, 7, 0])
 
         # Add channels individually
         #   BRANCH MVA
@@ -365,19 +452,24 @@ class Wec_grid:
 
         path = os.path.abspath(os.path.dirname(self.case_file)) + "\\test.snp"
         # Save snapshot
-        psspy.snap(sfile=path)
+        Wec_grid.psspy.snap(sfile=path)
 
         # Initialize
-        psspy.strt(outfile=path)
+        Wec_grid.psspy.strt(outfile=path)
 
         # Run to 3 cycles
         time = 3.0 / 60.0
-        psspy.run(tpause=time)
+        Wec_grid.psspy.run(tpause=time)
 
-    def run_WEC_Sim(self, sim_config):
+    def run_WEC_Sim(self, wec_id, sim_config):
         for wec in self.wec_list:
-            if wec.ID == sim_config["wec_id"]:
-                wec.run_WEC_Sim(sim_config)
+            if wec.ID == wec_id:
+                wec.WEC_Sim(sim_config)
+    
+    def run_CEC_Sim(self, cec_id, sim_config):
+        for cec in self.cec_list:
+            if cec.ID == cec_id:
+                cec.CEC_Sim(sim_config)
 
     def _psse_run_powerflow(self, solver):
         """
@@ -387,11 +479,11 @@ class Wec_grid:
         output: None
         """
         if solver == 'fnsl':
-            psspy.fnsl()
+            Wec_grid.psspy.fnsl()
         elif solver == 'GS':
-            psspy.solv()
+            Wec_grid.psspy.solv()
         elif solver == 'DC':
-            psspy.dclf_2(1, 1, [1, 0, 1, 2, 1, 1], [0, 0, 0], '1')
+            Wec_grid.psspy.dclf_2(1, 1, [1, 0, 1, 2, 1, 1], [0, 0, 0], '1')
         else:
             print("error in run_pf")
         self._psse_get_values()
@@ -419,7 +511,7 @@ class Wec_grid:
         for bus_parameter in lst:
             if bus_parameter != "P" and bus_parameter != "Q":
                 # grabs the bus parameter values for the specified parameter - list
-                ierr, bus_parameter_values = psspy.abusreal(
+                ierr, bus_parameter_values = Wec_grid.psspy.abusreal(
                     -1, string=bus_parameter)
                 if ierr != 0:
                     print("error in get_values function")
@@ -434,7 +526,7 @@ class Wec_grid:
         self.psse_dataframe = self.psse_dataframe.rename(
             columns={'index': "Bus"})
         # gets the bus type (3 = swing)
-        self.psse_dataframe['Type'] = psspy.abusint(-1, string="TYPE")[1][0]
+        self.psse_dataframe['Type'] = Wec_grid.psspy.abusint(-1, string="TYPE")[1][0]
         self.psse_dataframe.insert(
             0, "BUS_ID", range(1, 1 + len(self.psse_dataframe)))
         self._psse_addGeninfo()
@@ -474,8 +566,8 @@ class Wec_grid:
         input: None 
         output: Number of Buses
         """
-        psspy.bsys(0, 0, [0.0, 0.0], 1, [1], 0, [], 0, [], 0, [])
-        ierr, all_bus = psspy.abusint(0, 1, ['number'])
+        Wec_grid.psspy.bsys(0, 0, [0.0, 0.0], 1, [1], 0, [], 0, [], 0, [])
+        ierr, all_bus = Wec_grid.psspy.abusint(0, 1, ['number'])
         return all_bus[0]
 
     def _psse_dc_injection(self, ibus, p, pf_solver, time):
@@ -487,11 +579,11 @@ class Wec_grid:
             time: (Int)
         output: None
         """
-        ierr = psspy.machine_chng_3(ibus, "1", [], [p])
+        ierr = Wec_grid.psspy.machine_chng_3(ibus, "1", [], [p])
         if ierr > 0:
             print("Failed | machine_chng_3 code = {}".format(ierr))
         # psspy.dclf_2(status4=2)
-        ierr = psspy.dclf_2(1, 1, [1, 0, 1, 2, 0, 1], [0, 0, 1], '1')
+        ierr = Wec_grid.psspy.dclf_2(1, 1, [1, 0, 1, 2, 0, 1], [0, 0, 1], '1')
         if ierr > 0:
             raise Exception('Error in DC injection')
         self._psse_get_values()
@@ -527,15 +619,15 @@ class Wec_grid:
         output:
             no output but psse_dataframe is updated and so is psse_history
         """
-        time = self.wec_data[self.wec_list[0]].time.tolist()
+        time = self.wec_list[0].dataframe.time.to_list()
         for t in time:
             if t >= start and t <= end:
                 for idx, bus in enumerate(self.wec_list):
-                    ierr = psspy.machine_data_2(bus, '1', realar1=self.wec_data[bus].loc[self.wec_data[bus].time == t].pg) # adjust activate power 
+                    ierr = Wec_grid.psspy.machine_data_2(bus, '1', realar1=self.wec_data[bus].loc[self.wec_data[bus].time == t].pg) # adjust activate power 
                     if ierr > 0:
                         raise Exception('Error in AC injection')
 
-                    ierr = psspy.bus_chng_4(bus, 0, realar2=self.wec_data[bus].loc[self.wec_data[bus].time == t].vs) # adjsut voltage mag PU
+                    ierr = Wec_grid.psspy.bus_chng_4(bus, 0, realar2=self.wec_data[bus].loc[self.wec_data[bus].time == t].vs) # adjsut voltage mag PU
                     if ierr > 0:
                         raise Exception('Error in AC injection')
 
@@ -594,10 +686,10 @@ class Wec_grid:
         input:
         output:
         """
-        machine_bus_nums = psspy.amachint(-1, 4, "NUMBER")[
+        machine_bus_nums = Wec_grid.psspy.amachint(-1, 4, "NUMBER")[
             1][0]  # get the bus numbers of the machines - list
         # grabs the complex values for the machine
-        ierr, machine_bus_values = psspy.amachcplx(-1, 1, 'PQGEN')
+        ierr, machine_bus_values = Wec_grid.psspy.amachcplx(-1, 1, 'PQGEN')
         if ierr != 0:
             raise Exception(
                 'Error in grabbing PGGEN values in addgen function')
@@ -618,9 +710,9 @@ class Wec_grid:
         input: None
         output: None but updates psse_dataframe with load data
         """
-        load_bus_nums = psspy.aloadint(-1, 4, "NUMBER")[
+        load_bus_nums = Wec_grid.psspy.aloadint(-1, 4, "NUMBER")[
             1][0]  # get the bus numbers of buses with loads - list
-        ierr, load_bus_values = psspy.aloadcplx(-1, 1, "MVAACT")  # load values
+        ierr, load_bus_values = Wec_grid.psspy.aloadcplx(-1, 1, "MVAACT")  # load values
         if ierr != 0:
             raise Exception(
                 'Error in grabbing PGGEN values in addgen function')
@@ -681,7 +773,7 @@ class Wec_grid:
             node = ipycytoscape.Node(data=node_data)
             G_cyto.graph.add_node(node)
 
-        ierr, (fromnumber, tonumber) = psspy.abrnint(sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"])
+        ierr, (fromnumber, tonumber) = Wec_grid.psspy.abrnint(sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"])
         for index in range(len(fromnumber)):
             edge_data = {"source": str(fromnumber[index]), "target": str(tonumber[index])}
             edge = ipycytoscape.Edge(data=edge_data)
@@ -830,16 +922,16 @@ class Wec_grid:
         conn.commit()
         conn.close()
 
-    def pull_MiGrid(self):
+    # def pull_MiGrid(self):
 
-        # Connect to the database
-        c = sqlite3.connect('../input_files/WEC-SIM.db')
+    #     # Connect to the database
+    #     c = sqlite3.connect('../input_files/WEC-SIM.db')
         
-        for file in self.migrid_file_names:
-            base = os.path.splitext(file)[0]
-            migrid_data = pd.read_sql_query("SELECT * from {}".format(base), c)
-            self.migrid_data[base] = migrid_data
-        c.close()
+    #     for file in self.migrid_file_names:
+    #         base = os.path.splitext(file)[0]
+    #         migrid_data = pd.read_sql_query("SELECT * from {}".format(base), c)
+    #         self.migrid_data[base] = migrid_data
+    #     c.close()
         
     def Migrid_file(self, file_patterns=None):
 
@@ -911,58 +1003,54 @@ class Wec_grid:
         """
 
         if p is not None:
-            ierr = psspy.machine_data_2(bus_num, '1', realar1=p) # adjust activate power 
+            ierr = Wec_grid.psspy.machine_data_2(bus_num, '1', realar1=p) # adjust activate power 
             if ierr > 0:
                 raise Exception('Error in AC injection')
 
         if v is not None:
-            ierr = psspy.bus_chng_4(bus_num, 0, realar2=v) # adjsut voltage mag PU
+            ierr = Wec_grid.psspy.bus_chng_4(bus_num, 0, realar2=v) # adjsut voltage mag PU
             if ierr > 0:
                 raise Exception('Error in AC injection')
         
         if q is not None:
-            ierr = psspy.machine_data_2(bus_num, '1', realar2=q) # adjust Reactivate power 
+            ierr = Wec_grid.psspy.machine_data_2(bus_num, '1', realar2=q) # adjust Reactivate power 
             if ierr > 0:
                 raise Exception('Error in AC injection')
 
-    def pull_wec_data(self, wec_num=None):
-        """
-        Description: Pulls WEC data from the database. If wec_num is provided, pulls data for that specific wec.
-        input: wec_num (optional) - the number of the specific wec to pull data for
-        output: None
-        """
-        # Connect to the database
-        conn = sqlite3.connect(str(current_dir) + "\\WEC-SIM.db") # need to update with dynamic location
+    # def pull_wec_data(self, wec_num=None):
+    #     """
+    #     Description: Pulls WEC data from the database. If wec_num is provided, pulls data for that specific wec.
+    #     input: wec_num (optional) - the number of the specific wec to pull data for
+    #     output: None
+    #     """
+    #     # Connect to the database
+    #     conn = sqlite3.connect(str(current_dir) + "\\WEC-SIM.db") # need to update with dynamic location
         
-        #temp = os.getcwd()
+    #     #temp = os.getcwd()
 
-        # If wec_num is provided, use it to create a single-element list
-        wec_numbers = [wec_num] if wec_num is not None else self.wec_list
+    #     # If wec_num is provided, use it to create a single-element list
+    #     wec_numbers = [wec_num] if wec_num is not None else self.wec_list
         
-        for num in wec_numbers:
-            wec = pd.read_sql_query("SELECT * from WEC_output_{}".format(num), conn)
-            self.wec_data[num] = wec
+    #     for num in wec_numbers:
+    #         wec = pd.read_sql_query("SELECT * from WEC_output_{}".format(num), conn)
+    #         self.wec_data[num] = wec
 
-        conn.close()
+    #     conn.close()
 
     def clear_database(self):
         """
-        Description:
-        input: 
-        output:
+        Clears all the tables from the database.
         """
-        # Connect to the database
-        conn = sqlite3.connect('WEC-SIM.db') # need to update with dynamic location
-        c = conn.cursor()
-        # Drop all tables
-        c.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = c.fetchall()
+        
+        # Fetch all table names from the database
+        tables_query = "SELECT name FROM sqlite_master WHERE type='table'"
+        tables = dbQuery(tables_query)
+        
+        # Drop each table from the database
         for table_name in tables:
-            c.execute(f"DROP TABLE IF EXISTS {table_name[0]}")
-        # Commit the changes to the database
-        conn.commit()
-        # Close the database connection
-        conn.close()
+            drop_query = f"DROP TABLE IF EXISTS {table_name[0]}"
+            dbQuery(drop_query)
+
 
     def migrid_warm_start(self):
         """

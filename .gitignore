@@ -115,10 +115,10 @@ slprj/
 */W2G_RM3/temp/
 
 # WEC-Sim runtime generated files
-./wec_models/RM3/output/*
-./wec_models/RM3/temp/*
-./wec_models/LUPA/output/*
-./wec_models/LUPA/temp/*
+wec_models/RM3/output/*
+wec_models/RM3/temp/*
+wec_models/LUPA/output/*
+wec_models/LUPA/temp/*
 
 # Matlab autosave files
 *.asv
@@ -136,3 +136,9 @@ slprj/
 #ignore .mat files 
 
 *.mat
+
+
+.*
+!/.gitignore
+!/.gitattributes  # if you use this file
+

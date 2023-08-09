@@ -624,12 +624,14 @@ class Wec_grid:
         time = self.wec_list[0].dataframe.time.to_list()
         for t in time:
             if t >= start and t <= end:
-                for idx, bus in enumerate(self.wec_list):
-                    ierr = Wec_grid.psspy.machine_data_2(bus, '1', realar1=self.wec_data[bus].loc[self.wec_data[bus].time == t].pg) # adjust activate power 
+                for idx, wec_obj in enumerate(self.wec_list):
+                    bus = wec_obj.bus_location
+                    pg = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].pg # adjust activate power 
+                    ierr = Wec_grid.psspy.machine_data_2(bus, '1', realar1=pg) # adjust activate power 
                     if ierr > 0:
                         raise Exception('Error in AC injection')
-
-                    ierr = Wec_grid.psspy.bus_chng_4(bus, 0, realar2=self.wec_data[bus].loc[self.wec_data[bus].time == t].vs) # adjsut voltage mag PU
+                    vs = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs
+                    ierr = Wec_grid.psspy.bus_chng_4(bus, 0, realar2=vs) # adjsut voltage mag PU
                     if ierr > 0:
                         raise Exception('Error in AC injection')
 
@@ -665,7 +667,7 @@ class Wec_grid:
         output:
             matplotlib chart
         """
-        ylabel = "MW"
+        ylabel = "KW ? "
         # if bus_num in self.wecBus_nums:
         #     ylabel = "kW"
         # sns.set_theme()

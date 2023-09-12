@@ -1,5 +1,7 @@
 
-# ![WEC-GRID Logo](docs/wec-grid-logo.png)
+<p align="center">
+  <img src="docs/wec-grid-logo.png">
+</p>
 
 ## WEC-GRID: Integrating Wave Energy Converters into Power Grid Simulations
 
@@ -11,11 +13,18 @@ Amidst the global shift towards sustainable energy solutions, Wave Energy Conver
 
 ### Overview
 
-![WEC-GRID Data Flowchart](docs/WecGrid-flowchart.png)
+<p align="center">
+  <img src="docs/WecGrid-flowchart.png">
+</p>
 
 WEC-GRID is in its nascent stages, yet it presents a Python Jupyter Notebook that successfully establishes a PSSe API connection. It can solve both static AC & DC power flows, injecting data from a WEC/CEC device. Additionally, WEC-GRID comes equipped with rudimentary formatting tools for data analytics. The modular design ensures support for a selected power flow solving software and WEC/CEC devices. 
 
 For the current implementations, WEC-GRID is compatible with PSSe and [WEC-SIM](https://wec-sim.github.io/WEC-Sim/). The widespread application of PSSe in the power systems industry, coupled with its robust API, makes it an ideal choice.
+
+<p align="center">
+  <img src="docs/example_viz.png" alt="WEC-GRID Data Visualization">
+</p>
+
 
 ### Software Requirements and Setup
 

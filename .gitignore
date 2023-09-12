@@ -142,3 +142,7 @@ wec_models/LUPA/temp/*
 !/.gitignore
 !/.gitattributes  # if you use this file
 
+.*.*
+
+*.egg-info/
+

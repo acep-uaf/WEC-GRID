@@ -18,12 +18,7 @@ miniconda on windows seems to be tricky. mileage will vary
 
 ### Enviroment set up
 
-Use miniconda 64 bit to create enviroment: use the command below from the WEC-GRID directory
-
-```bash
-conda create --name PSSe --file .\spec-file.txt
-```
-if that doesn't work run these commands:
+Use miniconda 64 bit to create enviroment: 
 
 ```bash
 conda create --name PSSe python=3.7 

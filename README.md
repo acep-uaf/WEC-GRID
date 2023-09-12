@@ -1,7 +1,5 @@
 # WEC-GRID
-WEC-GRID is a Python library for simulating Wave Energy Converter on PSSe
-
-new feat
+WEC-GRID is a Python library for simulating Wave Energy Converter on Power Grid simulators (PSS®E & PyPSA)
 
 ## Installation
 

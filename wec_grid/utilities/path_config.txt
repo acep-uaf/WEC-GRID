@@ -1,0 +1,5 @@
+C:\Program Files\PTI\PSSE35\35.3
+C:\Users\alexb\research\WEC-Sim
+C:\Users\alexb\research\WEC-GRID\wec_models\
+C:\Users\alexb\research\WEC-GRID\wec_grid
+C:\Users\alexb\research\WEC-GRID

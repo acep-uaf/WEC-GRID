@@ -1,8 +1,0 @@
-# Carter Lassetter, Eduardo Cotilla-Sanchez, and Jinsub Kim
-# Oregon State University, 2016
-# Enhanced IEEE RTS-96 test case w/ synthetized dynamic parameters
-# Compatible with Siemens PTI PSS/E v33, adapted from Grigg et al., 1999
-
-# Salient generator models
-# IEEE T1 exciter models
-# IEEE G2 governor models

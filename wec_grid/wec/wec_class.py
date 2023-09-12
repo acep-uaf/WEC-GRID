@@ -1,6 +1,6 @@
-'''
+"""
 WEC Class file
-'''
+"""
 
 import os
 import pandas as pd

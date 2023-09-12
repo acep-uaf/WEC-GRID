@@ -21,7 +21,6 @@ import matlab.engine
 import cmath
 import matplotlib as plt
 
-
 # local libraries
 from WEC_GRID.cec import cec_class
 from WEC_GRID.wec import wec_class
@@ -30,10 +29,8 @@ from WEC_GRID.utilities.util import read_paths
 from WEC_GRID.database_handler.connection_class import DB_PATH
 from WEC_GRID.viz.psse_viz import PSSEVisualizer
 
-
 # Initialize the PATHS dictionary
 PATHS = read_paths()
-
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -112,18 +109,28 @@ class Wec_grid:
         self._s = Wec_grid.psspy.getdefaultchar()
 
         if self.case_file.endswith(".sav"):
-            Wec_grid.psspy.case(self.case_file)
+            ierr = Wec_grid.psspy.case(self.case_file)
         elif self.case_file.endswith(".raw"):
-            Wec_grid.psspy.read(1, self.case_file)
+            ierr = Wec_grid.psspy.read(1, self.case_file)
         elif self.case_file.endswith(".RAW"):
-            Wec_grid.psspy.read(1, self.case_file)
-        self._psse_run_powerflow(self.solver)
+            ierr = Wec_grid.psspy.read(1, self.case_file)
 
-        self.psse_history[-1] = self.psse_dataframe
+        if ierr >= 1:
+            print("error reading")
+            return 0
 
-        self.z_values(time=-1)
+        if self._psse_run_powerflow(self.solver):
 
-        self.store_p_flow(t=-1)
+            self.psse_history[-1] = self.psse_dataframe
+
+            self.z_values(time=-1)
+
+            self.store_p_flow(t=-1)
+            return 1
+
+        else:
+            print("Error grabbing values from PSSe")
+            return 0
 
     def initalize_pypsa(self):
         """
@@ -277,15 +284,29 @@ class Wec_grid:
              solver: the solver you want to use supported by PSSe, "fnsl" is a good default (str)
         output: None
         """
+        ierr = 1  # default there is an error
+
         if solver == "fnsl":
-            Wec_grid.psspy.fnsl()
+            ierr = Wec_grid.psspy.fnsl()
         elif solver == "GS":
-            Wec_grid.psspy.solv()
+            ierr = Wec_grid.psspy.solv()
         elif solver == "DC":
-            Wec_grid.psspy.dclf_2(1, 1, [1, 0, 1, 2, 1, 1], [0, 0, 0], "1")
+            ierr = Wec_grid.psspy.dclf_2(1, 1, [1, 0, 1, 2, 1, 1], [0, 0, 0], "1")
         else:
-            print("error in run_pf")
-        self._psse_get_values()
+            print("not a valid solver")
+            return 0
+
+        if ierr < 1:  # no error in solving
+            ierr = self._psse_get_values()
+        else:
+            print("Error while solving")
+            return 0
+
+        if ierr == 1:  # no error while grabbing values
+            return 1
+        else:
+            print("Error while grabbing values")
+            return 0
 
     def _pypsa_run_powerflow(self):
         """
@@ -315,6 +336,7 @@ class Wec_grid:
                 )
                 if ierr != 0:
                     print("error in get_values function")
+                    return 0
                 bus_add = {}
                 for bus_index, value in enumerate(
                     bus_parameter_values[0]
@@ -357,6 +379,7 @@ class Wec_grid:
             self.psse_dataframe.at[index, "ΔQ"] = mismatch.imag
             self.psse_dataframe.at[index, "M_Angle"] = abs(mismatch)
             self.psse_dataframe.at[index, "M_Mag"] = cmath.phase(mismatch)
+        return 1
 
     def _psse_get_p_or_q(self, letter):
         """
@@ -730,45 +753,6 @@ class Wec_grid:
         # The impedances dictionary contains impedance for each branch
         self.z_history[time] = impedances
 
-    def get_flow_data(self, t=None):
-        # If t is not provided, fetch data from PSS/E
-        if t is None:
-            flow_data = {}
-
-            try:
-                ierr, (fromnumber, tonumber) = self.psspy.abrnint(
-                    sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"]
-                )
-
-                for index in range(len(fromnumber)):
-                    ierr, p_flow = self.psspy.brnmsc(
-                        int(fromnumber[index]), int(tonumber[index]), "1", "P"
-                    )
-
-                    edge_data = {
-                        "source": str(fromnumber[index])
-                        if p_flow >= 0
-                        else str(tonumber[index]),
-                        "target": str(tonumber[index])
-                        if p_flow >= 0
-                        else str(fromnumber[index]),
-                        "p_flow": p_flow,
-                    }
-
-                    # Use a tuple (source, target) as a unique identifier for each edge
-                    edge_identifier = (edge_data["source"], edge_data["target"])
-                    flow_data[edge_identifier] = edge_data["p_flow"]
-            except Exception as e:
-                print(f"Error fetching data: {e}")
-
-            # Assign the fetched data to the current timestamp and return it
-            # self.flow_data[time.time()] = flow_data
-            return flow_data
-
-        # If t is provided, retrieve the corresponding data from the dictionary
-        else:
-            return self.flow_data.get(t, {})
-
     def store_p_flow(self, t):
         """
         Function to store the p_flow values of a grid network in a dictionary.
@@ -808,60 +792,6 @@ class Wec_grid:
             flow_data=self.get_flow_data(),
         )
         return visualizer.viz()
-
-    def compare_v(self):
-        """
-        Description:
-        input:
-        output:
-        """
-        v_mag = pd.concat(
-            [
-                self.psse_dataframe[["PU"]],
-                self.pypsa_dataframe[["v_mag_pu_set"]]
-                .reset_index()
-                .drop(columns=["Bus"]),
-            ],
-            axis=1,
-        ).rename(
-            columns={"PU": "PSSe voltage mag", "v_mag_pu_set": "pyPSA voltage mag"}
-        )
-        v_mag["abs diff"] = (
-            v_mag["PSSe voltage mag"] - v_mag["pyPSA voltage mag"]
-        ).abs()
-        return v_mag
-
-    def compare_p(self):
-        """
-        Description:
-        input:
-        output:
-        """
-        p_load = pd.concat(
-            [
-                self.psse_dataframe[["P Load"]],
-                self.pypsa_dataframe[["Pd"]].reset_index().drop(columns=["Bus"]),
-            ],
-            axis=1,
-        ).rename(columns={"P Load": "PSSe P-Load", "Pd": "pyPSA P-Load"})
-        p_load["abs diff"] = (p_load["PSSe P-Load"] - p_load["pyPSA P-Load"]).abs()
-        return p_load
-
-    def compare_q(self):
-        """
-        Description:
-        input:
-        output:
-        """
-        q_load = pd.concat(
-            [
-                self.psse_dataframe[["Q Load"]],
-                self.pypsa_dataframe[["Qd"]].reset_index().drop(columns=["Bus"]),
-            ],
-            axis=1,
-        ).rename(columns={"Q Load": "PSSe Q-Load", "Qd": "pyPSA Q-Load"})
-        q_load["abs diff"] = (q_load["PSSe Q-Load"] - q_load["pyPSA Q-Load"]).abs()
-        return q_load
 
     def _psse_adjust_gen(self, bus_num, p=None, v=None, q=None):
         """
@@ -924,21 +854,114 @@ class Wec_grid:
                 )
                 pointer += 1
 
-    def compare(self):
-        """
-        Description:
-        input:
-        output:
-        """
-        py = self.pypsa_dataframe.copy()
-        py = py.reset_index(level=0, drop=True)
-        py_final = py.rename(
-            columns={"Pd": "P Load", "Qd": "Q Load", "v_mag_pu_set": "PU"}
-        )[["PU", "P Load", "Q Load"]].copy()
-        py_final = py_final.fillna(0)
-        ps = self.psse_dataframe.copy()
-        ps_final = ps[["PU", "P Load", "Q Load"]]
-        ps_final = ps_final.fillna(0)
-        return ps_final.compare(py_final, keep_equal=True, keep_shape=True).rename(
-            columns={"self": "pyPSA", "other": "PSSe"}
-        )
+    # def compare_v(self):
+    #     """
+    #     Description:
+    #     input:
+    #     output:
+    #     """
+    #     v_mag = pd.concat(
+    #         [
+    #             self.psse_dataframe[["PU"]],
+    #             self.pypsa_dataframe[["v_mag_pu_set"]]
+    #             .reset_index()
+    #             .drop(columns=["Bus"]),
+    #         ],
+    #         axis=1,
+    #     ).rename(
+    #         columns={"PU": "PSSe voltage mag", "v_mag_pu_set": "pyPSA voltage mag"}
+    #     )
+    #     v_mag["abs diff"] = (
+    #         v_mag["PSSe voltage mag"] - v_mag["pyPSA voltage mag"]
+    #     ).abs()
+    #     return v_mag
+
+    # def compare_p(self):
+    #     """
+    #     Description:
+    #     input:
+    #     output:
+    #     """
+    #     p_load = pd.concat(
+    #         [
+    #             self.psse_dataframe[["P Load"]],
+    #             self.pypsa_dataframe[["Pd"]].reset_index().drop(columns=["Bus"]),
+    #         ],
+    #         axis=1,
+    #     ).rename(columns={"P Load": "PSSe P-Load", "Pd": "pyPSA P-Load"})
+    #     p_load["abs diff"] = (p_load["PSSe P-Load"] - p_load["pyPSA P-Load"]).abs()
+    #     return p_load
+
+    # def compare_q(self):
+    #     """
+    #     Description:
+    #     input:
+    #     output:
+    #     """
+    #     q_load = pd.concat(
+    #         [
+    #             self.psse_dataframe[["Q Load"]],
+    #             self.pypsa_dataframe[["Qd"]].reset_index().drop(columns=["Bus"]),
+    #         ],
+    #         axis=1,
+    #     ).rename(columns={"Q Load": "PSSe Q-Load", "Qd": "pyPSA Q-Load"})
+    #     q_load["abs diff"] = (q_load["PSSe Q-Load"] - q_load["pyPSA Q-Load"]).abs()
+    #     return q_load
+
+    # def compare(self):
+    #     """
+    #     Description:
+    #     input:
+    #     output:
+    #     """
+    #     py = self.pypsa_dataframe.copy()
+    #     py = py.reset_index(level=0, drop=True)
+    #     py_final = py.rename(
+    #         columns={"Pd": "P Load", "Qd": "Q Load", "v_mag_pu_set": "PU"}
+    #     )[["PU", "P Load", "Q Load"]].copy()
+    #     py_final = py_final.fillna(0)
+    #     ps = self.psse_dataframe.copy()
+    #     ps_final = ps[["PU", "P Load", "Q Load"]]
+    #     ps_final = ps_final.fillna(0)
+    #     return ps_final.compare(py_final, keep_equal=True, keep_shape=True).rename(
+    #         columns={"self": "pyPSA", "other": "PSSe"}
+    #     )
+
+    # def get_flow_data(self, t=None):
+    #     # If t is not provided, fetch data from PSS/E
+    #     if t is None:
+    #         flow_data = {}
+
+    #         try:
+    #             ierr, (fromnumber, tonumber) = self.psspy.abrnint(
+    #                 sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"]
+    #             )
+
+    #             for index in range(len(fromnumber)):
+    #                 ierr, p_flow = self.psspy.brnmsc(
+    #                     int(fromnumber[index]), int(tonumber[index]), "1", "P"
+    #                 )
+
+    #                 edge_data = {
+    #                     "source": str(fromnumber[index])
+    #                     if p_flow >= 0
+    #                     else str(tonumber[index]),
+    #                     "target": str(tonumber[index])
+    #                     if p_flow >= 0
+    #                     else str(fromnumber[index]),
+    #                     "p_flow": p_flow,
+    #                 }
+
+    #                 # Use a tuple (source, target) as a unique identifier for each edge
+    #                 edge_identifier = (edge_data["source"], edge_data["target"])
+    #                 flow_data[edge_identifier] = edge_data["p_flow"]
+    #         except Exception as e:
+    #             print(f"Error fetching data: {e}")
+
+    #         # Assign the fetched data to the current timestamp and return it
+    #         # self.flow_data[time.time()] = flow_data
+    #         return flow_data
+
+    #     # If t is provided, retrieve the corresponding data from the dictionary
+    #     else:
+    #         return self.flow_data.get(t, {})

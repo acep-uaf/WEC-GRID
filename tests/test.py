@@ -4,9 +4,9 @@ from unittest.mock import patch, Mock
 from WEC_GRID.wec_grid import Wec_grid
 from WEC_GRID.utilities.util import read_paths
 
-class TestWecGrid(unittest.TestCase):
 
-    @patch.object(Wec_grid, 'initalize_psse', return_value=None)
+class TestWecGrid(unittest.TestCase):
+    @patch.object(Wec_grid, "initalize_psse", return_value=True)
     def test_initialize_psse(self, mock_initialize_psse):
 
         # Read the paths using the read_paths function
@@ -17,12 +17,12 @@ class TestWecGrid(unittest.TestCase):
 
         # Create an instance of your class
         grid_instance = Wec_grid(mock_case)
-            
-        grid_instance.initalize_psse(solver="fnsl")
 
-        # Add your assertions here to verify the behavior
-        # Example:
-        # self.assertTrue(some_condition)
+        result = grid_instance.initalize_psse(solver="fnsl")
+
+        # Check that the initialize_psse method returned True
+        self.assertTrue(result)
+
 
 if __name__ == "__main__":
     unittest.main()

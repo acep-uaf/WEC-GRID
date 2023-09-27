@@ -46,6 +46,7 @@ simu.mcrMatFile = "matlab_elevation_files/mcrEta_TEST.mat"; % https://wec-sim.gi
 % No Wave
 % waves = waveClass('noWaveCIC');                   % Initialize waveClass
 %waves = waveClass('regular');
+waves.elevationFile = 'GeneratedEta.mat';
 %waves.height = 0.2; %[m]
 %waves.period = 2; %[s]
 %% Body Data

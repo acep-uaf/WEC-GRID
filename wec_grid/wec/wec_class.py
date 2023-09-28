@@ -99,10 +99,16 @@ class WEC:
             eng.workspace[key] = value
 
         eng.workspace["DB_PATH"] = DB_PATH  # move to front end?
-        eng.eval(
-            "m2g_out = w2gSim_LUPA(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);",
-            nargout=0,
-        )
+        if self.model == "LUPA":
+            eng.eval(
+                "m2g_out = w2gSim_LUPA(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);",
+                nargout=0,
+            )
+        else:
+            eng.eval(
+                "m2g_out = w2gSim(wecId,simLength,Tsample,waveHeight,wavePeriod,waveSeed);",
+                nargout=0,
+            )
         eng.eval("WECsim_to_PSSe_dataFormatter", nargout=0)
         print("Sim Completed")
         print("==========")

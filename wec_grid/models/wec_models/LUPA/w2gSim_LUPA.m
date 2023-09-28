@@ -60,6 +60,3 @@ m2g_out.wecId = wecId;
 %plot_W2G_waveforms
 
 end
-
-
-

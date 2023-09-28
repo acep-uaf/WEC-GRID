@@ -35,6 +35,22 @@ CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class Wec_grid:
+    """
+    The `Wec_grid` class represents a WEC-Grid system. It contains methods for initializing a PSSe case,
+    adding WECs and CECs to the system, and running simulations.
+
+    Attributes:
+        case_file (str): A file path to a raw or sav file.
+        softwares (list): A list of software packages used in the simulation.
+        wec_list (list): A list of `wec_class` objects representing the WECs in the system.
+        cec_list (list): A list of `cec_class` objects representing the CECs in the system.
+        wec_data (dict): A dictionary containing data for each WEC in the system.
+        psse_dataframe (pandas.DataFrame): A DataFrame containing data from the PSSe simulation.
+        pypsa_dataframe (pandas.DataFrame): A DataFrame containing data from the PyPSA simulation.
+        load_profiles (pandas.DataFrame): A DataFrame containing load profile data.
+        z_history (dict): A dictionary containing the history of the impedance seen by each WEC.
+        flow_data (dict): A dictionary containing flow data for each WEC.
+    """
 
     psspy = None
 
@@ -165,6 +181,12 @@ class Wec_grid:
         self.pypsa_object_history[-1] = self.pypsa_object
 
     def add_wec(self, wec):
+        """
+        Description: Adds a WEC to the WEC list and adjusts the activate power of the machine data in PSSe
+        input:
+            wec: WEC object to be added to the WEC list (wec_class.WEC)
+        output: None
+        """
         self.wec_list.append(wec)
         for w in self.wec_list:
             ierr = Wec_grid.psspy.machine_data_2(
@@ -514,7 +536,7 @@ class Wec_grid:
         hours=12,
         resolution=5,
     ):
-        """Generate load profiles for all buses."""
+
         time_data = self.wec_list[0].dataframe.time.to_list()
         self.load_profiles = pd.DataFrame(
             {
@@ -670,7 +692,13 @@ class Wec_grid:
         visualizer._psse_plot_bus(bus_num, time, arg_1, arg_2)
 
     def plot_load_curve(self, bus_id):
-        """Plot the load curve for a given bus."""
+        """
+        Description: This function plots the load curve for a given bus
+        input:
+            bus_id: the bus number we want to visualize (Int)
+        output:
+            matplotlib chart
+        """
         # Check if the bus_id exists in load_profiles
         viz = PSSEVisualizer(
             psse_dataframe=self.psse_dataframe,
@@ -682,9 +710,9 @@ class Wec_grid:
 
     def _psse_addGeninfo(self):
         """
-        Description:
-        input:
-        output:
+        Description: This function grabs the generator values from the PSSe system and updates the psse_dataframe with the generator data.
+        Input: None
+        Output: None but updates psse_dataframe with generator data
         """
         machine_bus_nums = Wec_grid.psspy.amachint(-1, 4, "NUMBER")[1][
             0
@@ -730,6 +758,15 @@ class Wec_grid:
         self.psse_dataframe["Q Load"] = q_load_df_list
 
     def z_values(self, time):
+        """
+        Retrieve the impedance values for each branch in the power grid at a given time.
+
+        Parameters:
+        - time (float): The time at which to retrieve the impedance values.
+
+        Returns:
+        - None. The impedance values are stored in the `z_history` attribute of the object.
+        """
         # Retrieve FROMNUMBER and TONUMBER for all branches
         ierr, (from_numbers, to_numbers) = Wec_grid.psspy.abrnint(
             sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"]
@@ -785,6 +822,15 @@ class Wec_grid:
             print(f"Error fetching data: {e}")
 
     def _psse_viz(self, dataframe=None):
+        """
+        Description: Generates a visualization of the PSSE data using the PSSEVisualizer class.
+
+        Parameters:
+        - dataframe (pandas.DataFrame): Optional parameter to pass a custom PSSE dataframe.
+
+        Returns:
+        - matplotlib.figure.Figure: A matplotlib figure object containing the visualization.
+        """
         visualizer = PSSEVisualizer(
             psse_dataframe=self.psse_dataframe,
             psse_history=self.psse_history,
@@ -837,7 +883,7 @@ class Wec_grid:
 
     def migrid_warm_start(self):
         """
-        Description:
+        Description: Adjusts the active power of regular generators to match the values in the migrid_data dictionary.
         input:
         output:
         """
@@ -853,6 +899,57 @@ class Wec_grid:
                     bus_num=regular_gens[pointer], p=value.iloc[0].gen_value
                 )
                 pointer += 1
+
+    def get_flow_data(self, t=None):
+        """
+        Description:
+        This method retrieves the power flow data for all branches in the power system at a given timestamp.
+        If no timestamp is provided, the method fetches the data from PSS/E and returns it.
+        If a timestamp is provided, the method retrieves the corresponding data from the dictionary and returns it.
+
+        Inputs:
+        - t (float): timestamp for which to retrieve the power flow data (optional)
+
+        Outputs:
+        - flow_data (dict): dictionary containing the power flow data for all branches in the power system
+        """
+        # If t is not provided, fetch data from PSS/E
+        if t is None:
+            flow_data = {}
+
+            try:
+                ierr, (fromnumber, tonumber) = self.psspy.abrnint(
+                    sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"]
+                )
+
+                for index in range(len(fromnumber)):
+                    ierr, p_flow = self.psspy.brnmsc(
+                        int(fromnumber[index]), int(tonumber[index]), "1", "P"
+                    )
+
+                    edge_data = {
+                        "source": str(fromnumber[index])
+                        if p_flow >= 0
+                        else str(tonumber[index]),
+                        "target": str(tonumber[index])
+                        if p_flow >= 0
+                        else str(fromnumber[index]),
+                        "p_flow": p_flow,
+                    }
+
+                    # Use a tuple (source, target) as a unique identifier for each edge
+                    edge_identifier = (edge_data["source"], edge_data["target"])
+                    flow_data[edge_identifier] = edge_data["p_flow"]
+            except Exception as e:
+                print(f"Error fetching data: {e}")
+
+            # Assign the fetched data to the current timestamp and return it
+            # self.flow_data[time.time()] = flow_data
+            return flow_data
+
+        # If t is provided, retrieve the corresponding data from the dictionary
+        else:
+            return self.flow_data.get(t, {})
 
     # def compare_v(self):
     #     """
@@ -926,42 +1023,3 @@ class Wec_grid:
     #     return ps_final.compare(py_final, keep_equal=True, keep_shape=True).rename(
     #         columns={"self": "pyPSA", "other": "PSSe"}
     #     )
-
-    # def get_flow_data(self, t=None):
-    #     # If t is not provided, fetch data from PSS/E
-    #     if t is None:
-    #         flow_data = {}
-
-    #         try:
-    #             ierr, (fromnumber, tonumber) = self.psspy.abrnint(
-    #                 sid=-1, flag=3, string=["FROMNUMBER", "TONUMBER"]
-    #             )
-
-    #             for index in range(len(fromnumber)):
-    #                 ierr, p_flow = self.psspy.brnmsc(
-    #                     int(fromnumber[index]), int(tonumber[index]), "1", "P"
-    #                 )
-
-    #                 edge_data = {
-    #                     "source": str(fromnumber[index])
-    #                     if p_flow >= 0
-    #                     else str(tonumber[index]),
-    #                     "target": str(tonumber[index])
-    #                     if p_flow >= 0
-    #                     else str(fromnumber[index]),
-    #                     "p_flow": p_flow,
-    #                 }
-
-    #                 # Use a tuple (source, target) as a unique identifier for each edge
-    #                 edge_identifier = (edge_data["source"], edge_data["target"])
-    #                 flow_data[edge_identifier] = edge_data["p_flow"]
-    #         except Exception as e:
-    #             print(f"Error fetching data: {e}")
-
-    #         # Assign the fetched data to the current timestamp and return it
-    #         # self.flow_data[time.time()] = flow_data
-    #         return flow_data
-
-    #     # If t is provided, retrieve the corresponding data from the dictionary
-    #     else:
-    #         return self.flow_data.get(t, {})

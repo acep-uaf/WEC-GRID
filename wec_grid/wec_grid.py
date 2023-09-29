@@ -35,6 +35,57 @@ CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class Wec_grid:
+    psspy = None
+
+    def __init__(self, case):
+        """
+        Description: welcome to WEC-Grid, this is the initialization function.
+        input:
+            case: a file path to a raw or sav file (str)
+        output: None
+        """
+        # initalized variables and files
+        self.case_file = case
+        self.softwares = []
+        self.wec_list = []  # list
+        self.cec_list = []  # list
+        self.wec_data = {}
+        self.psse_dataframe = pd.DataFrame()
+        self.pypsa_dataframe = pd.DataFrame()
+        self.load_profiles = pd.DataFrame()
+        # self.migrid_file_names = self.Migrid_file()
+        # self.wec_data = {}
+        # self.electrical_distance_dict = {}
+        self.z_history = {}
+        self.flow_data = {}
+
+    def initalize_psse(self, solver):
+        """
+        Description: Initializes a PSSe case, uses the topology passed at original initialization
+        input:
+            solver: the solver you want to use supported by PSSe, "fnsl" is a good default (str)
+        output: None
+        """
+        os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+        psse_path = PATHS["psse"]
+        sys.path.extend(
+            [
+                os.path.join(psse_path, subdir)
+                for subdir in ["PSSPY37", "PSSBIN", "PSSLIB", "EXAMPLE"]
+            ]
+        )
+        os.environ["PATH"] = (
+            os.path.join(psse_path, "PSSPY37")
+            + ";"
+            + os.path.join(psse_path, "PSSBIN")
+            + ";"
+            + os.path.join(psse_path, "EXAMPLE")
+            + ";"
+        )
+
+        # Initialize PSSe
+        self.psspy = pypower.runpsse(self.case_file, solver)
+
     """
     The `Wec_grid` class represents a WEC-Grid system. It contains methods for initializing a PSSe case,
     adding WECs and CECs to the system, and running simulations.

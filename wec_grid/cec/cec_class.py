@@ -75,7 +75,7 @@ class CEC:
         # Combine intervals and averages for the result
         result = pd.DataFrame({"time": [end for _, end in intervals], "pg": averages})
 
-        result["vs"] = 1.1
+        result["vs"] = 1.1  # this shouldn't be hardcoded
 
         self.dataframe = result
 

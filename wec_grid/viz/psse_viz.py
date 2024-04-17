@@ -18,12 +18,18 @@ _LABEL_MAP = {1: "PQ Bus", 2: "PV Bus", 3: "Swing Bus", 4: "WEC Bus"}
 _THRESHOLD = 50
 
 
+# class PSSEVisualizer:
+#     def __init__(self, psse_dataframe, psse_history, load_profiles, flow_data):
+#         self.dataframe = psse_dataframe
+#         self.psse_history = psse_history
+#         #self.load_profiles = load_profiles
+#         #self.flow_data = flow_data
+
+
 class PSSEVisualizer:
-    def __init__(self, psse_dataframe, psse_history, load_profiles, flow_data):
+    def __init__(self, psse_dataframe, psse_history):
         self.dataframe = psse_dataframe
         self.psse_history = psse_history
-        self.load_profiles = load_profiles
-        self.flow_data = flow_data
 
     def plot_load_curve(self, bus_id):
         """Plot the load curve for a given bus."""
@@ -65,7 +71,7 @@ class PSSEVisualizer:
             bus_dataframe = bus_dataframe.append(temp)
         return bus_dataframe
 
-    def _psse_plot_bus(self, bus_num, time, arg_1, arg_2):
+    def plot_bus(self, bus_num, time, arg_1, arg_2):
         """
         Description: This function plots the activate and reactive power for a given bus
         input:
@@ -106,6 +112,11 @@ class PSSEVisualizer:
             linestyle="-",
             lw=2,
         )
+
+        if arg_1 == "P":
+            ylabel = "MW"
+        else:
+            ylabel = ""
 
         ax1.set(xlabel="", ylabel=f"{arg_1} - {ylabel}")
         ax2.set(xlabel="Time (seconds)", ylabel=f"{arg_2} - {ylabel}")

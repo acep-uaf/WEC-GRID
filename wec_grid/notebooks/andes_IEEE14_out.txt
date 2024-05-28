@@ -1,9 +1,9 @@
-ANDES 1.9.1
+ANDES 1.8.10
 Copyright (C) 2015-2022 Hantao Cui
 
 ANDES comes with ABSOLUTELY NO WARRANTY
 Case file: ../models/grid_models/andes_IEEE14.raw
-Report time: 03/19/2024 05:02:51 PM
+Report time: 05/06/2024 02:39:00 PM
 
 Power flow converged in 4 iterations.
 Flat-start: No

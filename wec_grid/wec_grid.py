@@ -31,6 +31,7 @@ from WEC_GRID.database_handler.connection_class import DB_PATH
 
 from WEC_GRID.pyPSA import pyPSAWrapper
 from WEC_GRID.PSSe import PSSeWrapper
+from WEC_GRID.viz import PSSEVisualizer
 
 
 # Initialize the PATHS dictionary
@@ -746,10 +747,11 @@ class Wec_grid:
         - matplotlib.figure.Figure: A matplotlib figure object containing the visualization.
         """
         visualizer = PSSEVisualizer(
-            psse_dataframe=self.psse_dataframe,
-            psse_history=self.psse_history,
-            load_profiles=self.load_profiles,
-            flow_data=self.get_flow_data(),
+            # psse_dataframe=self.psse.dataframe,
+            # psse_history=self.psse.history,
+            # #load_profiles=self.load_profiles, # need to add a if exist statement
+            # flow_data=self.psse.flow_data(),
+            psse_obj = self.psse
         )
         return visualizer.viz()
 
@@ -864,76 +866,3 @@ class Wec_grid:
         # If t is provided, retrieve the corresponding data from the dictionary
         else:
             return self.flow_data.get(t, {})
-
-    # def compare_v(self):
-    #     """
-    #     Description:
-    #     input:
-    #     output:
-    #     """
-    #     v_mag = pd.concat(
-    #         [
-    #             self.psse_dataframe[["PU"]],
-    #             self.pypsa_dataframe[["v_mag_pu_set"]]
-    #             .reset_index()
-    #             .drop(columns=["Bus"]),
-    #         ],
-    #         axis=1,
-    #     ).rename(
-    #         columns={"PU": "PSSe voltage mag", "v_mag_pu_set": "pyPSA voltage mag"}
-    #     )
-    #     v_mag["abs diff"] = (
-    #         v_mag["PSSe voltage mag"] - v_mag["pyPSA voltage mag"]
-    #     ).abs()
-    #     return v_mag
-
-    # def compare_p(self):
-    #     """
-    #     Description:
-    #     input:
-    #     output:
-    #     """
-    #     p_load = pd.concat(
-    #         [
-    #             self.psse_dataframe[["P Load"]],
-    #             self.pypsa_dataframe[["Pd"]].reset_index().drop(columns=["Bus"]),
-    #         ],
-    #         axis=1,
-    #     ).rename(columns={"P Load": "PSSe P-Load", "Pd": "pyPSA P-Load"})
-    #     p_load["abs diff"] = (p_load["PSSe P-Load"] - p_load["pyPSA P-Load"]).abs()
-    #     return p_load
-
-    # def compare_q(self):
-    #     """
-    #     Description:
-    #     input:
-    #     output:
-    #     """
-    #     q_load = pd.concat(
-    #         [
-    #             self.psse_dataframe[["Q Load"]],
-    #             self.pypsa_dataframe[["Qd"]].reset_index().drop(columns=["Bus"]),
-    #         ],
-    #         axis=1,
-    #     ).rename(columns={"Q Load": "PSSe Q-Load", "Qd": "pyPSA Q-Load"})
-    #     q_load["abs diff"] = (q_load["PSSe Q-Load"] - q_load["pyPSA Q-Load"]).abs()
-    #     return q_load
-
-    # def compare(self):
-    #     """
-    #     Description:
-    #     input:
-    #     output:
-    #     """
-    #     py = self.pypsa_dataframe.copy()
-    #     py = py.reset_index(level=0, drop=True)
-    #     py_final = py.rename(
-    #         columns={"Pd": "P Load", "Qd": "Q Load", "v_mag_pu_set": "PU"}
-    #     )[["PU", "P Load", "Q Load"]].copy()
-    #     py_final = py_final.fillna(0)
-    #     ps = self.psse_dataframe.copy()
-    #     ps_final = ps[["PU", "P Load", "Q Load"]]
-    #     ps_final = ps_final.fillna(0)
-    #     return ps_final.compare(py_final, keep_equal=True, keep_shape=True).rename(
-    #         columns={"self": "pyPSA", "other": "PSSe"}
-    #     )

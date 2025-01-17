@@ -27,32 +27,31 @@ _THRESHOLD = 50
 
 
 class PSSEVisualizer:
-    def __init__(self, psse_dataframe, psse_history):
-        self.dataframe = psse_dataframe
-        self.psse_history = psse_history
+    def __init__(self, psse_obj):
+        self.psse_obj = psse_obj
 
-    def plot_load_curve(self, bus_id):
-        """Plot the load curve for a given bus."""
-        # Check if the bus_id exists in load_profiles
-        bus_col_name = f"bus {bus_id}"
-        if bus_col_name not in self.load_profiles.columns:
-            print(f"No load profile available for bus {bus_id}.")
-            return
+    # def plot_load_curve(self, bus_id):
+    #     """Plot the load curve for a given bus."""
+    #     # Check if the bus_id exists in load_profiles
+    #     bus_col_name = f"bus {bus_id}"
+    #     if bus_col_name not in self.load_profiles.columns:
+    #         print(f"No load profile available for bus {bus_id}.")
+    #         return
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(
-            self.load_profiles["time"],
-            self.load_profiles[bus_col_name],
-            label=f"Bus {bus_id} Load Curve",
-            color="blue",
-        )
-        plt.xlabel("Time (s)")
-        plt.ylabel("Load (MW or MVAR)")
-        plt.title(f"Load Curve for Bus {bus_id}")
-        plt.grid(True)
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+    #     plt.figure(figsize=(10, 6))
+    #     plt.plot(
+    #         self.load_profiles["time"],
+    #         self.load_profiles[bus_col_name],
+    #         label=f"Bus {bus_id} Load Curve",
+    #         color="blue",
+    #     )
+    #     plt.xlabel("Time (s)")
+    #     plt.ylabel("Load (MW or MVAR)")
+    #     plt.title(f"Load Curve for Bus {bus_id}")
+    #     plt.grid(True)
+    #     plt.legend()
+    #     plt.tight_layout()
+    #     plt.show()
 
     def _psse_bus_history(self, bus_num):
         """
@@ -130,9 +129,11 @@ class PSSEVisualizer:
 
     def _setup_cyto_graph(self, dataframe=None):
         """Setup the Cytoscape graph with nodes and edges."""
-        if dataframe is None:
-            dataframe = self.dataframe
-
+        # if dataframe is None:
+        #     dataframe = self.psse_obj.dataframe
+        
+        dataframe = self.psse_obj.dataframe
+        
         dataframe[dataframe.select_dtypes(include=["number"]).columns] = (
             dataframe.select_dtypes(include=["number"])
             .fillna(0)
@@ -153,17 +154,21 @@ class PSSEVisualizer:
                 "classes": _COLOR_MAP[row["Type"]],
                 "P": row["P"],
                 "Q": row["Q"],
-                "angle": row["ANGLED"],
+                "angle": row["ANGLE"],
             }
             cyto_graph.graph.add_node(ipycytoscape.Node(data=node_data))
             nx_graph.add_node(str(row["BUS_ID"]), **node_data)
 
         # Fetch the flow data
-        flow_data = self.flow_data
+        flow_data = self.psse_obj.flow_data
 
         # Add edges using the fetched flow data
         try:
-            for (source, target), p_flow in flow_data.items():
+            # Get the specific flow data for the current time (-1 here)
+            time_flow_data = self.psse_obj.flow_data.get(-1, {})
+
+            # Iterate over the inner dictionary
+            for (source, target), p_flow in time_flow_data.items():
                 arrow_color = "green" if p_flow >= 0 else "red"
                 edge_data = {
                     "source": source if p_flow >= 0 else target,
@@ -311,7 +316,7 @@ class PSSEVisualizer:
 
     def viz(self, dataframe=None):
         # Setup Cytoscape graph with nodes and edges
-        cyto_graph, nx_graph = self._setup_cyto_graph(dataframe)
+        cyto_graph, nx_graph = self._setup_cyto_graph(self.psse_obj.dataframe)
 
         # Apply styles to the graph
         self._setup_styles(cyto_graph)
@@ -325,7 +330,7 @@ class PSSEVisualizer:
         )
 
         # Create a time slider
-        valid_times = sorted(self.psse_history.keys())
+        valid_times = sorted(self.psse_obj.history.keys())
         time_slider = widgets.SelectionSlider(
             options=valid_times,
             description="Time:",
@@ -337,7 +342,7 @@ class PSSEVisualizer:
 
         def update_flow(change):
             t = change["new"]
-            flow_data = self.flow_data.get(t, {})
+            flow_data = self.psse_obj.flow_data.get(t, {})
 
             for edge in cyto_graph.graph.edges:
                 source = edge.data["source"]

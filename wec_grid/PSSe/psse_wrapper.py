@@ -53,9 +53,9 @@ class PSSeWrapper:
         )
 
         import psse35
-
-        psse35.set_minor(3)
         import psspy
+        psse35.set_minor(3)
+        psspy.psseinit(50)
 
         import dyntools
 

@@ -18,17 +18,10 @@ _LABEL_MAP = {1: "PQ Bus", 2: "PV Bus", 3: "Swing Bus", 4: "WEC Bus"}
 _THRESHOLD = 50
 
 
-# class PSSEVisualizer:
-#     def __init__(self, psse_dataframe, psse_history, load_profiles, flow_data):
-#         self.dataframe = psse_dataframe
-#         self.psse_history = psse_history
-#         #self.load_profiles = load_profiles
-#         #self.flow_data = flow_data
-
 
 class PSSEVisualizer:
     def __init__(self, psse_obj):
-        self.psse_obj = psse_obj
+        self.psse_obj = psse_obj # passing the psse object to the visualizer, this is the parent object
 
     # def plot_load_curve(self, bus_id):
     #     """Plot the load curve for a given bus."""
@@ -53,22 +46,7 @@ class PSSEVisualizer:
     #     plt.tight_layout()
     #     plt.show()
 
-    def _psse_bus_history(self, bus_num):
-        """
-        Description: this function grab all the data associated with a bus through the simulation
-        input:
-            bus_num: bus number (Int)
-        output:
-            bus_dataframe: a pandas dateframe of the history
-        """
-        # maybe I should add a filering parameter?
 
-        bus_dataframe = pd.DataFrame()
-        for time, df in self.psse_history.items():
-            temp = pd.DataFrame(df.loc[df["BUS_ID"] == bus_num])
-            temp.insert(0, "time", time)
-            bus_dataframe = bus_dataframe.append(temp)
-        return bus_dataframe
 
     def plot_bus(self, bus_num, time, arg_1, arg_2):
         """
@@ -88,7 +66,7 @@ class PSSEVisualizer:
         fig, (ax1, ax2) = plt.subplots(2, figsize=(10, 6))
         fig.suptitle(f"Bus {bus_num} Data Visualization", fontsize=16, y=1.05)
 
-        bus_df = self._psse_bus_history(bus_num)
+        bus_df = self.psse_obj.bus_history(bus_num)
         bus_df = bus_df.loc[(bus_df["time"] >= time[0]) & (bus_df["time"] <= time[1])]
 
         ax1.plot(

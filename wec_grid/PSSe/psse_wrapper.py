@@ -540,6 +540,13 @@ class PSSeWrapper:
         self.history[time] = self.dataframe
 
     def ac_injection(self, start, end, p=None, v=None, time=None):
+        # TODO: There has to be a better way to do this. 
+        # I think we should create a marine models obj list or dict and then iterate over that instead
+        # of having two list? 
+        # wec_grid.create_marine_model(type="wec", ID=11, model="RM3", bus_location=7)
+        # instead of the list we have something like
+        # marine_models = {11: {"type": "wec", "model": "RM3", "bus_location": 7} , 
+        #                  12: {"type": "cec", "model": "Water Horse", "bus_location": 8}}
         """
         Description: WEC AC injection for PSSe powerflow solver
         input:
@@ -653,8 +660,7 @@ class PSSeWrapper:
             matplotlib chart
         """
         visualizer = PSSEVisualizer(
-            psse_dataframe=self.dataframe,
-            psse_history=self.history,
+            psse_obj=self
         )
         visualizer.plot_bus(bus_num, time, arg_1, arg_2)
 

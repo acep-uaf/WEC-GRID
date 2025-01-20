@@ -51,7 +51,7 @@ For the current implementations, WEC-GRID is compatible with PSSe and [WEC-SIM](
 1. Install Miniconda, MATLAB, WEC-SIM, and the PSSe API.
 2. Clone the WEC-GRID repository:
    ```bash
-   git clone 
+   git clone https://github.com/acep-uaf/WEC-GRID
 3. Confirm conda is installed:
    ```bash
    conda --version

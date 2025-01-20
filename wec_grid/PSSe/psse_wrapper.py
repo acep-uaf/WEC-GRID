@@ -19,13 +19,13 @@ CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 class PSSeWrapper:
     psspy = None
 
-    def __init__(self, case):
+    def __init__(self, case, wec_grid):
         self.case_file = case
         self.dataframe = pd.DataFrame()
         self.history = {}
         self.z_history = {}
         self.flow_data = {}
-        self.wec_list = []
+        self.wec_grid = wec_grid  # Reference to the parent WecGrid
 
     def initalize(self, solver):
         """
@@ -78,7 +78,7 @@ class PSSeWrapper:
             ierr = PSSeWrapper.psspy.case(self.case_file)
         elif self.case_file.endswith(".raw"):
             ierr = PSSeWrapper.psspy.read(1, self.case_file)
-        elif self.case_file.endswith(".RAW"):
+        elif self.case_file.endswith(".RAW"): # this is dumb, just lowercase the file extension
             ierr = PSSeWrapper.psspy.read(1, self.case_file)
 
         if ierr >= 1:
@@ -550,15 +550,15 @@ class PSSeWrapper:
         output:
             no output but dataframe is updated and so is history
         """
-        num_wecs = len(self.wec_list)
-        num_cecs = len(self.cec_list)
+        num_wecs = len(self.wec_grid.wecObj_list)
+        num_cecs = len(self.wec_grid.cecObj_list)
 
-        time = self.wec_list[0].dataframe.time.to_list()
+        time = self.wec_grid.wecObj_list[0].dataframe.time.to_list()
         for t in time:
             # print("time: {}".format(t))
             if t >= start and t <= end:
                 if num_wecs > 0:
-                    for idx, wec_obj in enumerate(self.wec_list):
+                    for idx, wec_obj in enumerate(self.wec_grid.wecObj_list):
                         bus = wec_obj.bus_location
                         pg = wec_obj.dataframe.loc[
                             wec_obj.dataframe.time == t
@@ -576,11 +576,11 @@ class PSSeWrapper:
                             raise Exception("Error in AC injection")
 
                         # self.run_powerflow(self.solver)
-                        self.update_load(bus, t)
+                        #self.update_load(bus, t) # TODO: Implement update_load, should be optinal tho
                         # print("=======")plot_bus
-                if num_cecs > 0:
-                    if t in self.cec_list[0].dataframe["time"].values:
-                        for idx, cec_obj in enumerate(self.cec_list):
+                if num_cecs > 0: # TODO: Issue with the CEC data
+                    if t in self.wec_grid.wecObj_list[0].dataframe["time"].values:
+                        for idx, cec_obj in enumerate(self.wec_grid.cecObj_list):
                             bus = cec_obj.bus_location
                             pg = cec_obj.dataframe.loc[
                                 cec_obj.dataframe.time == t
@@ -598,11 +598,11 @@ class PSSeWrapper:
                                 raise Exception("Error in AC injection")
 
                             # self.run_powerflow(self.solver)
-                            self.update_load(bus, t)
+                            #self.update_load(bus, t) # TODO: Implement update_load, should be optinal tho
                         #     #print("=======")
 
                 self.run_powerflow(self.solver)
-                self.update_type()
+                #self.update_type() # TODO: check if I need this still. I think i update the type when I create the models
                 self.history[t] = self.dataframe
                 self.z_values(time=t)
                 self.store_p_flow(t)
@@ -677,19 +677,11 @@ class PSSeWrapper:
 
     def viz(self, dataframe=None):
         """
-        Description: Generates a visualization of the PSSE data using the PSSEVisualizer class.
 
-        Parameters:
-        - dataframe (pandas.DataFrame): Optional parameter to pass a custom PSSE dataframe.
-
-        Returns:
-        - matplotlib.figure.Figure: A matplotlib figure object containing the visualization.
         """
         visualizer = PSSEVisualizer(
-            dataframe=self.dataframe,
-            history=self.history,
-            # load_profiles=self.load_profiles,
-            # flow_data=self.get_flow_data(),
+
+            psse_obj = self # need to pass this object itself? 
         )
         return visualizer.viz()
 

@@ -34,7 +34,7 @@ For the current implementations, WEC-GRID is compatible with PSSe and [WEC-SIM](
    - Download and install [Miniconda (64-bit)](https://docs.conda.io/en/latest/miniconda.html) for Python environment management.
 
 2. **MATLAB**
-   - Ensure MATLAB 2021b is installed. [Download MATLAB](https://www.mathworks.com/products/matlab.html). This is the only tested and support verison of MATLAB currently 
+   - Ensure MATLAB 2021b is installed. [Download MATLAB](https://www.mathworks.com/products/matlab.html). This is the only tested and supported version of MATLAB currently.
 
 3. **WEC-SIM**
    - Install WEC-SIM (latest version). [Get WEC-SIM](https://wec-sim.github.io/WEC-Sim/).

@@ -3,14 +3,22 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to WecGrid's documentation!
-===================================
+Welcome to WecGrid Documentation!
+==================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Contents:
 
    modules
+
+API Documentation
+=================
+
+.. automodule:: WecGrid
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Indices and tables
 ==================

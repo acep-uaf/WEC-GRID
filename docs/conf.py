@@ -5,6 +5,9 @@
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../'))
 
 project = 'WecGrid'
 copyright = '2025, Alexander Barajas-Ritchie'
@@ -13,7 +16,14 @@ author = 'Alexander Barajas-Ritchie'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+extensions = [
+    'sphinx.ext.autodoc',       # Parses docstrings
+    'sphinx.ext.napoleon',      # Supports Google/NumPy-style docstrings
+    'sphinx.ext.viewcode',      # Links to source code
+    'sphinx.ext.autosummary',   # Creates summary tables for modules
+]
+
+autosummary_generate = True
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']

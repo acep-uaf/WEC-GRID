@@ -5,3 +5,4 @@ Provides functionalities to visualize grid structures, WEC model simulations, an
 
 
 from .psse_viz import PSSEVisualizer
+from .pypsa_viz import PyPSAVisualizer

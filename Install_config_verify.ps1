@@ -222,4 +222,6 @@ Setup-CondaEnvironment
 Install-WecGrid
 Configure-PSSE-Persistent
 Configure-MATLAB
+conda deactivate
+conda activate $Global:CondaEnvName
 Write-Color "`nSetup complete! Your environment is ready." "Yellow"

@@ -16,6 +16,7 @@ import pypower.api as pypower
 
 # Local Libraries (updated with relative imports)
 from ..utilities.util import read_paths  # Relative import for utilities/util.py
+from ..viz.pypsa_viz import PyPSAVisualizer 
 
 # Initialize the PATHS dictionary
 PATHS = read_paths()
@@ -59,7 +60,7 @@ class pyPSAWrapper:
         self.pypsa_object_history[-1] = self.pypsa_object
         print("pyPSA initialized")
 
-    def ac_injection(self, p, v, time):
+    def ac_injection(self, start, end, p=None, v=None, time=None):
         """
         Description: WEC AC injection for pypsa powerflow solver
         input:
@@ -68,17 +69,40 @@ class pyPSAWrapper:
             time: (Int)
         output: no output but pypsa_dataframe is updated and so is pypsa_history
         """
-        for idx, bus in enumerate(self.wecBus_nums):
+        # TODO: There has to be a better way to do this.
+        time = self.WecGridCore.wecObj_list[0].dataframe.time.to_list()
+        num_wecs = len(self.WecGridCore.wecObj_list)
+        num_cecs = len(self.WecGridCore.cecObj_list)
+        
+        for t in time:
+            if t >= start and t <= end:
+                if num_wecs > 0:
+                    for idx, wec_obj in enumerate(self.WecGridCore.wecObj_list):
+                        bus = wec_obj.bus_location
+                        pg = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].pg 
+                        vs = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs
+                        
+                        self.pypsa_object.generators.loc[
+                            self.pypsa_object.generators.bus == str(bus), "v_set_pu"
+                        ] = vs
+                        self.pypsa_object.generators.loc[
+                            self.pypsa_object.generators.bus == str(bus), "p_set"
+                        ] = pg
+                if num_cecs > 0:   
+                    for idx, cec_obj in enumerate(self.WecGridCore.cecObj_list):
+                        bus = cec_obj.bus_location
+                        pg = cec_obj.dataframe.loc[cec_obj.dataframe.time == t].pg
+                        vs = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs
+                        
+                        self.pypsa_object.generators.loc[
+                            self.pypsa_object.generators.bus == str(bus), "v_set_pu"
+                        ] = vs
+                        self.pypsa_object.generators.loc[
+                            self.pypsa_object.generators.bus == str(bus), "p_set"
+                        ] = pg
 
-            self.pypsa_object.generators.loc[
-                self.pypsa_object.generators.bus == str(bus), "v_set_pu"
-            ] = v[idx]
-            self.pypsa_object.generators.loc[
-                self.pypsa_object.generators.bus == str(bus), "p_set"
-            ] = p[idx]
-
-        self.run_powerflow()
-        self.pypsa_history[time] = self.pypsa_dataframe
+                self.run_powerflow()
+                self.pypsa_history[t] = self.pypsa_dataframe
 
     def run_powerflow(self):
         """
@@ -93,3 +117,13 @@ class pyPSAWrapper:
         self.pypsa_dataframe = self.pypsa_object.buses
         
     # TODO: build out the viz function for pyPSA
+    
+    def viz(self, dataframe=None):
+        """
+
+        """
+        visualizer = PyPSAVisualizer(
+
+            pypsa_obj = self # need to pass this object itself? 
+        )
+        return visualizer.viz()

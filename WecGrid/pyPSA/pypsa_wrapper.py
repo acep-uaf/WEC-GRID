@@ -22,13 +22,14 @@ PATHS = read_paths()
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class pyPSAWrapper:
-    def __init__(self, case):
+    def __init__(self, case, WecGridCore):
         self.case_file = case
         self.pypsa_history = {}
         self.pypsa_object_history = {}
         self.dataframe = pd.DataFrame()
+        self.WecGridCore = WecGridCore  # Reference to the parent 
 
-    def initalize(self, solver):
+    def initialize(self, solver):
         """
         Description: Initializes a pyPSA case, uses the topology passed at original initialization
         input:
@@ -43,7 +44,7 @@ class pyPSAWrapper:
         eng.eval("savecase('here.mat',mpc,1.0)", nargout=0)
 
         # Load the MATPOWER case file from a .mat file
-        ppc = pypower.loadcase("./here.mat")
+        ppc = pypower.loadcase("./here.mat") # TODO: this is hardcode, should be passing the mat file, tbh I forgot what this is for. 
 
         # Convert Pandapower network to PyPSA network
         pypsa_network = pypsa.Network()
@@ -58,7 +59,7 @@ class pyPSAWrapper:
         self.pypsa_object_history[-1] = self.pypsa_object
         print("pyPSA initialized")
 
-    def _pypsa_ac_injection(self, p, v, time):
+    def ac_injection(self, p, v, time):
         """
         Description: WEC AC injection for pypsa powerflow solver
         input:
@@ -76,10 +77,10 @@ class pyPSAWrapper:
                 self.pypsa_object.generators.bus == str(bus), "p_set"
             ] = p[idx]
 
-        self._pypsa_run_powerflow()
+        self.run_powerflow()
         self.pypsa_history[time] = self.pypsa_dataframe
 
-    def _pypsa_run_powerflow(self):
+    def run_powerflow(self):
         """
         Description: This function runs the powerflow for pyPSA model
         Input: None
@@ -90,3 +91,5 @@ class pyPSAWrapper:
         temp.pf()
         self.pypsa_object = temp.copy()
         self.pypsa_dataframe = self.pypsa_object.buses
+        
+    # TODO: build out the viz function for pyPSA

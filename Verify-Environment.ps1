@@ -1,4 +1,4 @@
-# Define a function to display messages with colors
+# Function to display messages with colors
 function Write-Color {
     param (
         [string]$Message,
@@ -29,7 +29,6 @@ if (Get-Command conda -ErrorAction SilentlyContinue) {
 Write-Color "`nStep 2: Verifying Python version is 3.7..." "Cyan"
 if (Get-Command python -ErrorAction SilentlyContinue) {
     $pythonVersion = python --version 2>&1
-    Write-Output $pythonVersion
     if ($pythonVersion -match "3.7") {
         Write-Color "Python version is 3.7." "Green"
     } else {
@@ -41,19 +40,18 @@ if (Get-Command python -ErrorAction SilentlyContinue) {
     exit 1
 }
 
-
-Write-Color "`nStep 3: Checking if MATLAB is installed and accessible..." "Cyan"
+# Step 3: Check if WEC-GRID is installed and accessible
+Write-Color "`nStep 3: Checking if WEC-GRID is installed and accessible..." "Cyan"
 try {
-    python -c "import matlab.engine" 2>&1 | Out-Null
-    Write-Color "'matlab.engine' is installed." "Green"
+    python -c "import wec_grid" 2>&1 | Out-Null
+    Write-Color "'WEC-GRID' is installed and accessible." "Green"
 } catch {
-    Write-Color "'matlab.engine' is NOT installed." "Red"
+    Write-Color "'WEC-GRID' is NOT installed or accessible." "Red"
     exit 1
 }
 
-
-# Step 5: Validate packages from wec_grid_env.yml
-Write-Color "`nStep 5: Validating installed packages from 'wec_grid_env.yml'..." "Cyan"
+# Step 4: Validate packages from wec_grid_env.yml
+Write-Color "`nStep 4: Validating installed packages from 'wec_grid_env.yml'..." "Cyan"
 $ymlPath = "./wec_grid_env.yml"
 if (Test-Path $ymlPath) {
     $ymlContent = Get-Content $ymlPath -Raw
@@ -61,13 +59,7 @@ if (Test-Path $ymlPath) {
 
     $missingPackages = @()
     foreach ($pkg in $dependencies) {
-        if ($pkg -match "=") {
-            $pkgName = $pkg.Split("=")[0]  # Extract the package name before "="
-        } else {
-            $pkgName = $pkg
-        }
-
-        # Check if the package is installed
+        $pkgName = if ($pkg -match "=") { $pkg.Split("=")[0] } else { $pkg }
         try {
             conda list | Select-String -Quiet $pkgName | Out-Null
         } catch {
@@ -75,7 +67,6 @@ if (Test-Path $ymlPath) {
         }
     }
 
-    # Print results
     if ($missingPackages.Count -eq 0) {
         Write-Color "All packages specified in 'wec_grid_env.yml' are installed." "Green"
     } else {
@@ -87,8 +78,8 @@ if (Test-Path $ymlPath) {
     exit 1
 }
 
-# Step 6: Validate pip packages from requirements.txt
-Write-Color "`nStep 6: Validating pip packages from 'requirements.txt'..." "Cyan"
+# Step 5: Validate pip packages from requirements.txt
+Write-Color "`nStep 5: Validating pip packages from 'requirements.txt'..." "Cyan"
 $reqPath = "./requirements.txt"
 if (Test-Path $reqPath) {
     $reqPackages = Get-Content $reqPath
@@ -101,7 +92,6 @@ if (Test-Path $reqPath) {
         }
     }
 
-    # Print results
     if ($missingPipPackages.Count -eq 0) {
         Write-Color "All pip packages specified in 'requirements.txt' are installed." "Green"
     } else {
@@ -112,4 +102,24 @@ if (Test-Path $reqPath) {
     Write-Color "'requirements.txt' file not found at $reqPath." "Red"
 }
 
-Write-Color "`nEnvironment setup verification completed." "Yellow"
+# Step 6: Check if MATLAB Engine API is installed
+Write-Color "`nStep 6: Checking if MATLAB Engine API is installed..." "Cyan"
+try {
+    python -c "import matlab.engine" 2>&1 | Out-Null
+    Write-Color "'matlab.engine' is installed and accessible." "Green"
+} catch {
+    Write-Color "'matlab.engine' is NOT installed or accessible." "Red"
+    exit 1
+}
+
+# Step 7: Check if PSSe is configured and accessible
+Write-Color "`nStep 7: Checking if PSSe is configured and accessible..." "Cyan"
+try {
+    python -c "import psse35; import psspy" 2>&1 | Out-Null
+    Write-Color "PSSe is configured and accessible." "Green"
+} catch {
+    Write-Color "PSSe is NOT configured or accessible." "Red"
+    exit 1
+}
+
+Write-Color "`nEnvironment setup verification completed successfully!" "Yellow"

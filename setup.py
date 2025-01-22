@@ -1,25 +1,25 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="WEC_GRID",
+    name="WecGrid",  # Change to match the desired software name
     version="0.1.0",
-    packages=find_packages(),
+    packages=find_packages(),  # Automatically finds WecGrid and submodules
     install_requires=[
-        # Add your dependencies here
-        "numpy>=1.18.5",
+        "numpy>=1.21.6",
         "pandas>=1.0.4",
         "matplotlib>=3.1.0",
         "seaborn>=0.11.0",
         "pypsa",
-        "pypower",
-        "pyrlu",
-        "ipycytoscape",
+        "pypower>=5.1.17",
+        "pyrlu>=0.2.1",
+        "ipycytoscape>=1.3.3",
+        "spectate>=1.0.1",
         "bqplot",
-        "pywin32>=228; platform_system=='Windows'",  # Conditional dependency for Windows
+        "pywin32>=228; platform_system=='Windows'",
         "ipykernel>=6.0",
     ],
     description=(
-        "WEC-GRID is an open-source Python library crafted to simulate the integration "
+        "WecGrid is an open-source Python library crafted to simulate the integration "
         "of Wave Energy Converters (WECs) and Current Energy Converters (CECs) into "
         "renowned power grid simulators like PSS®E & PyPSA."
     ),
@@ -34,5 +34,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.7",  # Adjust based on the minimum Python version your library supports
+    python_requires=">=3.7",
 )

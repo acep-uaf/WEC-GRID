@@ -32,9 +32,10 @@ For the current implementations, WEC-GRID is compatible with PSSe and [WEC-SIM](
 
 1. **Install Miniconda**
    - Download and install [Miniconda (64-bit)](https://docs.conda.io/en/latest/miniconda.html) for Python environment management.
+   - TODO: add instructions to add miniconda to path and other trouble shooting 
 
 2. **MATLAB**
-   - Ensure MATLAB 2021b is installed. [Download MATLAB](https://www.mathworks.com/products/matlab.html). This is the only tested and supported version of MATLAB currently.
+   - Ensure MATLAB 2021b is installed. [Download MATLAB](https://www.mathworks.com/products/matlab.html). This is the only tested and supported version of MATLAB currently. Hold off on installing the MATLAB Engine API for Python until your conda environment is set up.
 
 3. **WEC-SIM**
    - Install WEC-SIM (latest version). [Get WEC-SIM](https://wec-sim.github.io/WEC-Sim/).
@@ -84,9 +85,18 @@ pip install -e .
    ```
 2. Run the following command to install the MATLAB Engine API:
    ```bash
-   python -m pip install .
+   python -m pip install . 
+
+   #todo format the above command to be more clear about using the dot 
+   ```
+
+Currently MATLAB Engine API is only supported on python 3.8, if you run into install issues confirm you are using your conda environment with python 3.8. You can test this using the Jupyter notebook in examples/Environment_Testing.ipynb
    ```
 #### Step 3.5: Naviagte to the WEC-GRID directory
+
+#### Step 4: Configure the PSSe python API
+
+#TODO: Add instructions for configuring the PSSe API
 ---
 
 ### Testing the Setup
@@ -105,6 +115,10 @@ pip install -e .
    - MATLAB API
 
 ---
+
+### Version Number
+TODO: Add version number beta 1.0.0
+TODO: list all tested and working functions, dynamics and not working forsure. 
 
 ### Contributing
 

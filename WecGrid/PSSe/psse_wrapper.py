@@ -19,20 +19,22 @@ from ..viz.psse_viz import PSSEVisualizer  # Relative import for viz/psse_viz.py
 # PATHS = read_paths()
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
+#TODO: the PSSE is sometimes blowing up but not returning and error so the sim continues. Need to fix ASAP
 class PSSeWrapper:
     psspy = None
 
-    def __init__(self, case, wec_grid):
+    def __init__(self, case, WecGridCore):
         self.case_file = case
         self.dataframe = pd.DataFrame()
         self.history = {}
         self.z_history = {}
         self.flow_data = {}
-        self.wec_grid = wec_grid  # Reference to the parent WecGrid
+        self.WecGridCore = WecGridCore  # Reference to the parent WecGrid
+        self.lst_param = ["BASE", "PU", "ANGLE", "P", "Q"]
+        self.solver = None # unneeded? 
         
 
-    def initalize(self, solver): #TODO: miss spelling 
+    def initialize(self, solver='fnsl'): #TODO: miss spelling 
         """
         Description: Initializes a PSSe case, uses the topology passed at original initialization
         input:
@@ -51,6 +53,17 @@ class PSSeWrapper:
         # Initialize PSSE object
         PSSeWrapper.psspy = psspy
         psspy.report_output(islct=2, filarg="NUL", options=[0])
+        
+        self.history = {}
+        self.lst_param = ["BASE", "PU", "ANGLE", "P", "Q"]
+        self.solver = solver
+        self.dynamic_case_file = ""
+
+        # self.dataframe = pd.DataFrame()
+        self._i = psspy.getdefaultint()
+        self._f = psspy.getdefaultreal()
+        self._s = psspy.getdefaultchar()
+
 
         ext = self.case_file.lower()
         if ext.endswith(".sav"):
@@ -73,78 +86,7 @@ class PSSeWrapper:
         else:
             print("Error running power flow.")
             return 0
-
-
-    # def initalize(self, solver):
-    #     """
-    #     Description: Initializes a PSSe case, uses the topology passed at original initialization
-    #     input:
-    #         solver: the solver you want to use supported by PSSe, "fnsl" is a good default (str)
-    #     output: None
-    #     """
-    #     # os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-    #     # psse_path = PATHS["psse"]
-    #     # sys.path.extend(
-    #     #     [
-    #     #         os.path.join(psse_path, subdir)
-    #     #         for subdir in ["PSSPY37", "PSSBIN", "PSSLIB", "EXAMPLE"]
-    #     #     ]
-    #     # )
-    #     # os.environ["PATH"] = (
-    #     #     os.path.join(psse_path, "PSSPY37")
-    #     #     + ";"
-    #     #     + os.path.join(psse_path, "PSSBIN")
-    #     #     + ";"
-    #     #     + os.path.join(psse_path, "EXAMPLE")
-    #     #     + ";"
-    #     #     + os.environ["PATH"]
-    #     # )
-
-    #     import psse35
-    #     import psspy
-    #     psse35.set_minor(3)
-    #     psspy.psseinit(50)
-
-    #     import dyntools
-
-    #     PSSeWrapper.psspy = psspy
-
-    #     psspy.report_output(islct=2, filarg="NUL", options=[0])  # Discards output
-
-    #     PSSeWrapper.psspy.psseinit(50)
-    #     self.history = {}
-    #     self.lst_param = ["BASE", "PU", "ANGLE", "P", "Q"]
-    #     self.solver = solver
-    #     self.dynamic_case_file = ""
-
-    #     # self.dataframe = pd.DataFrame()
-    #     self._i = psspy.getdefaultint()
-    #     self._f = psspy.getdefaultreal()
-    #     self._s = psspy.getdefaultchar()
-
-    #     if self.case_file.endswith(".sav"):
-    #         ierr = PSSeWrapper.psspy.case(self.case_file)
-    #     elif self.case_file.endswith(".raw"):
-    #         ierr = PSSeWrapper.psspy.read(1, self.case_file)
-    #     elif self.case_file.endswith(".RAW"): # this is dumb, just lowercase the file extension
-    #         ierr = PSSeWrapper.psspy.read(1, self.case_file)
-
-    #     if ierr >= 1:
-    #         print("error reading")
-    #         return 0
-
-    #     if self.run_powerflow(self.solver):
-
-    #         self.history[-1] = self.dataframe
-
-    #         self.z_values(time=-1)
-
-    #         self.store_p_flow(t=-1)
-    #         return 1
-
-    #     else:
-    #         print("Error grabbing values from PSSe")
-    #         return 0
+    
 
     def clear(self):
         """
@@ -452,49 +394,6 @@ class PSSeWrapper:
 
         PSSeWrapper.psspy.save("final_state_after_dynamic_sim.sav")
 
-        # # Convert loads (3 step process):
-        # PSSeWrapper.psspy.conl(-1, 1, 1)
-
-        # PSSeWrapper.psspy.conl(
-        #     sid=-1, all=1, apiopt=2, status=[0, 0], loadin=[100, 0, 0, 100]
-        # )
-
-        # PSSeWrapper.psspy.conl(-1, 1, 3)
-
-        # # Convert generators:
-        # PSSeWrapper.psspy.cong()
-
-        # # Solve for dynamics
-        # PSSeWrapper.psspy.ordr()
-        # PSSeWrapper.psspy.fact()
-        # PSSeWrapper.psspy.tysl()
-        # # Save converted case
-        # case_root = os.path.splitext(self.case_file)[0]
-        # PSSeWrapper.psspy.save(case_root + ".sav")
-
-        # PSSeWrapper.psspy.dyre_new(dyrefile=self.dynamic_case_file)
-
-        # # Add channels by subsystem
-        # #   BUS VOLTAGE
-        # PSSeWrapper.psspy.chsb(sid=0, all=1, status=[-1, -1, -1, 1, 13, 0])
-        # #   MACHINE SPEED
-        # PSSeWrapper.psspy.chsb(sid=0, all=1, status=[-1, -1, -1, 1, 7, 0])
-
-        # # Add channels individually
-        # #   BRANCH MVA
-        # # psspy.branch_mva_channel([-1,-1,-1,3001,3002],'1')
-
-        # path = os.path.abspath(os.path.dirname(self.case_file)) + "\\test.snp"
-        # # Save snapshot
-        # PSSeWrapper.psspy.snap(sfile=path)
-
-        # # Initialize
-        # PSSeWrapper.psspy.strt(outfile=path)
-
-        # # Run to 3 cycles
-        # time = 3.0 / 60.0
-        # PSSeWrapper.psspy.run(tpause=time)
-
     def plot_simulation_results(self, output_file, channels):
         import dyntools
         import numpy as np
@@ -591,7 +490,7 @@ class PSSeWrapper:
         # TODO: There has to be a better way to do this. 
         # I think we should create a marine models obj list or dict and then iterate over that instead
         # of having two list? 
-        # wec_grid.create_marine_model(type="wec", ID=11, model="RM3", bus_location=7)
+        # WecGridCore.create_marine_model(type="wec", ID=11, model="RM3", bus_location=7)
         # instead of the list we have something like
         # marine_models = {11: {"type": "wec", "model": "RM3", "bus_location": 7} , 
         #                  12: {"type": "cec", "model": "Water Horse", "bus_location": 8}}
@@ -605,15 +504,15 @@ class PSSeWrapper:
         output:
             no output but dataframe is updated and so is history
         """
-        num_wecs = len(self.wec_grid.wecObj_list)
-        num_cecs = len(self.wec_grid.cecObj_list)
+        num_wecs = len(self.WecGridCore.wecObj_list)
+        num_cecs = len(self.WecGridCore.cecObj_list)
 
-        time = self.wec_grid.wecObj_list[0].dataframe.time.to_list()
+        time = self.WecGridCore.wecObj_list[0].dataframe.time.to_list()
         for t in time:
             # print("time: {}".format(t))
             if t >= start and t <= end:
                 if num_wecs > 0:
-                    for idx, wec_obj in enumerate(self.wec_grid.wecObj_list):
+                    for idx, wec_obj in enumerate(self.WecGridCore.wecObj_list):
                         bus = wec_obj.bus_location
                         pg = wec_obj.dataframe.loc[
                             wec_obj.dataframe.time == t
@@ -634,8 +533,8 @@ class PSSeWrapper:
                         #self.update_load(bus, t) # TODO: Implement update_load, should be optinal tho
                         # print("=======")plot_bus
                 if num_cecs > 0: # TODO: Issue with the CEC data
-                    if t in self.wec_grid.wecObj_list[0].dataframe["time"].values:
-                        for idx, cec_obj in enumerate(self.wec_grid.cecObj_list):
+                    if t in self.WecGridCore.wecObj_list[0].dataframe["time"].values:
+                        for idx, cec_obj in enumerate(self.WecGridCore.cecObj_list):
                             bus = cec_obj.bus_location
                             pg = cec_obj.dataframe.loc[
                                 cec_obj.dataframe.time == t
@@ -811,11 +710,11 @@ class PSSeWrapper:
             time: (Int)
         output: None
         """
-        ierr = Wec_grid.psspy.machine_chng_3(ibus, "1", [], [p])
+        ierr = WecGridCore.psspy.machine_chng_3(ibus, "1", [], [p])
         if ierr > 0:
             print("Failed | machine_chng_3 code = {}".format(ierr))
         # psspy.dclf_2(status4=2)
-        ierr = Wec_grid.psspy.dclf_2(1, 1, [1, 0, 1, 2, 0, 1], [0, 0, 1], "1")
+        ierr = WecGridCore.psspy.dclf_2(1, 1, [1, 0, 1, 2, 0, 1], [0, 0, 1], "1")
         if ierr > 0:
             raise Exception("Error in DC injection")
         self._psse_get_values()

@@ -1,4 +1,4 @@
-name: WEC_GRID_ENV
+name: WecGridEnv
 channels:
   - anaconda
   - conda-forge
@@ -193,5 +193,3 @@ dependencies:
   - zipp=3.11.0=py37haa95532_0
   - zlib=1.2.13=h8cc25b3_1
   - zstd=1.5.6=h8880b57_0
-pip:
-  - -r requirements.txt

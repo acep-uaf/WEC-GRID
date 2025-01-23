@@ -1,6 +1,7 @@
 import os
 import sys
 
+
 def configure_psse_paths():
     """
     Adds PSSE paths to the system PATH and Python sys.path for runtime use.
@@ -19,6 +20,7 @@ def configure_psse_paths():
     try:
         import psse35
         import psspy
+
         psse35.set_minor(3)
         psspy.psseinit(50)
         print("PSSE paths successfully configured.")

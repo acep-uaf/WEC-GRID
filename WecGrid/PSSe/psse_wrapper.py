@@ -19,7 +19,7 @@ from ..viz.psse_viz import PSSEVisualizer  # Relative import for viz/psse_viz.py
 # PATHS = read_paths()
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
-#TODO: the PSSE is sometimes blowing up but not returning and error so the sim continues. Need to fix ASAP
+# TODO: the PSSE is sometimes blowing up but not returning and error so the sim continues. Need to fix ASAP
 class PSSeWrapper:
     psspy = None
 
@@ -31,10 +31,9 @@ class PSSeWrapper:
         self.flow_data = {}
         self.WecGridCore = WecGridCore  # Reference to the parent WecGrid
         self.lst_param = ["BASE", "PU", "ANGLE", "P", "Q"]
-        self.solver = None # unneeded? 
-        
+        self.solver = None  # unneeded?
 
-    def initialize(self, solver='fnsl'): #TODO: miss spelling 
+    def initialize(self, solver="fnsl"):  # TODO: miss spelling
         """
         Description: Initializes a PSSe case, uses the topology passed at original initialization
         input:
@@ -44,16 +43,19 @@ class PSSeWrapper:
         try:
             import psse35
             import psspy
+
             psse35.set_minor(3)
             psspy.psseinit(50)
         except ModuleNotFoundError as e:
-            print("Error: PSSE modules not found. Ensure PSSE is installed and paths are configured.")
+            print(
+                "Error: PSSE modules not found. Ensure PSSE is installed and paths are configured."
+            )
             raise e
 
         # Initialize PSSE object
         PSSeWrapper.psspy = psspy
         psspy.report_output(islct=2, filarg="NUL", options=[0])
-        
+
         self.history = {}
         self.lst_param = ["BASE", "PU", "ANGLE", "P", "Q"]
         self.solver = solver
@@ -63,7 +65,6 @@ class PSSeWrapper:
         self._i = psspy.getdefaultint()
         self._f = psspy.getdefaultreal()
         self._s = psspy.getdefaultchar()
-
 
         ext = self.case_file.lower()
         if ext.endswith(".sav"):
@@ -86,7 +87,6 @@ class PSSeWrapper:
         else:
             print("Error running power flow.")
             return 0
-    
 
     def clear(self):
         """
@@ -487,12 +487,12 @@ class PSSeWrapper:
         self.history[time] = self.dataframe
 
     def ac_injection(self, start, end, p=None, v=None, time=None):
-        # TODO: There has to be a better way to do this. 
+        # TODO: There has to be a better way to do this.
         # I think we should create a marine models obj list or dict and then iterate over that instead
-        # of having two list? 
+        # of having two list?
         # WecGridCore.create_marine_model(type="wec", ID=11, model="RM3", bus_location=7)
         # instead of the list we have something like
-        # marine_models = {11: {"type": "wec", "model": "RM3", "bus_location": 7} , 
+        # marine_models = {11: {"type": "wec", "model": "RM3", "bus_location": 7} ,
         #                  12: {"type": "cec", "model": "Water Horse", "bus_location": 8}}
         """
         Description: WEC AC injection for PSSe powerflow solver
@@ -530,9 +530,9 @@ class PSSeWrapper:
                             raise Exception("Error in AC injection")
 
                         # self.run_powerflow(self.solver)
-                        #self.update_load(bus, t) # TODO: Implement update_load, should be optinal tho
+                        # self.update_load(bus, t) # TODO: Implement update_load, should be optinal tho
                         # print("=======")plot_bus
-                if num_cecs > 0: # TODO: Issue with the CEC data
+                if num_cecs > 0:  # TODO: Issue with the CEC data
                     if t in self.WecGridCore.wecObj_list[0].dataframe["time"].values:
                         for idx, cec_obj in enumerate(self.WecGridCore.cecObj_list):
                             bus = cec_obj.bus_location
@@ -552,11 +552,11 @@ class PSSeWrapper:
                                 raise Exception("Error in AC injection")
 
                             # self.run_powerflow(self.solver)
-                            #self.update_load(bus, t) # TODO: Implement update_load, should be optinal tho
+                            # self.update_load(bus, t) # TODO: Implement update_load, should be optinal tho
                         #     #print("=======")
 
                 self.run_powerflow(self.solver)
-                #self.update_type() # TODO: check if I need this still. I think i update the type when I create the models
+                # self.update_type() # TODO: check if I need this still. I think i update the type when I create the models
                 self.history[t] = self.dataframe
                 self.z_values(time=t)
                 self.store_p_flow(t)
@@ -590,9 +590,7 @@ class PSSeWrapper:
         output:
             matplotlib chart
         """
-        visualizer = PSSEVisualizer(
-            psse_obj=self
-        )
+        visualizer = PSSEVisualizer(psse_obj=self)
         visualizer.plot_bus(bus_num, time, arg_1, arg_2)
 
     def plot_load_curve(self, bus_id):
@@ -613,13 +611,8 @@ class PSSeWrapper:
         viz.plot_load_curve(bus_id)
 
     def viz(self, dataframe=None):
-        """
-
-        """
-        visualizer = PSSEVisualizer(
-
-            psse_obj = self # need to pass this object itself? 
-        )
+        """ """
+        visualizer = PSSEVisualizer(psse_obj=self)  # need to pass this object itself?
         return visualizer.viz()
 
     def adjust_gen(self, bus_num, p=None, v=None, q=None):

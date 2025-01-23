@@ -18,13 +18,10 @@ _LABEL_MAP = {1: "PQ Bus", 2: "PV Bus", 3: "Swing Bus", 4: "WEC Bus"}
 _THRESHOLD = 50
 
 
-
 class PyPSAVisualizer:
     def __init__(self, pypsa_obj):
-        self.pypsa_obj = pypsa_obj # passing the psse object to the visualizer, this is the parent object
-        
-        
-    
+        self.pypsa_obj = pypsa_obj  # passing the psse object to the visualizer, this is the parent object
+
     def plot_bus(self, bus_num, time, arg_1, arg_2):
         """
         Description: This function plots the activate and reactive power for a given bus
@@ -86,9 +83,9 @@ class PyPSAVisualizer:
         """Setup the Cytoscape graph with nodes and edges."""
         # if dataframe is None:
         #     dataframe = self.pypsa_obj.dataframe
-        
+
         dataframe = self.pypsa_obj.dataframe
-        
+
         dataframe[dataframe.select_dtypes(include=["number"]).columns] = (
             dataframe.select_dtypes(include=["number"])
             .fillna(0)

@@ -23,19 +23,18 @@ import cmath
 import matplotlib.pyplot as plt
 
 # local libraries
-from .cec import cec_class
-from .wec import wec_class
-from .utilities.util import dbQuery, read_paths
-from .database_handler.connection_class import DB_PATH
-from .pyPSA import pyPSAWrapper
-from .PSSe import PSSeWrapper
-from .viz import PSSEVisualizer
+from WecGrid.cec import cec_class
+from WecGrid.wec import wec_class
+from WecGrid.utilities.util import dbQuery, read_paths
+from WecGrid.database_handler.connection_class import DB_PATH
+from WecGrid.pyPSA import pyPSAWrapper
+from WecGrid.PSSe import PSSeWrapper
+from WecGrid.viz import PSSEVisualizer
 
 
 # Initialize the PATHS dictionary
 PATHS = read_paths()
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
-
 
 
 class WecGrid:
@@ -51,13 +50,13 @@ class WecGrid:
         Args:
             case (str): The file path to a raw or sav file.
         """
-        self.case_file = case # TODO: need to verify file exist
+        self.case_file = case  # TODO: need to verify file exist
         self.case_file_name = os.path.basename(case)
         self.psseObj = None
         self.pypsaObj = None
-        #self.dbObj = None
-        self.wecObj_list = [] # list of the WEC Model objects for the simulations
-        self.cecObj_list = [] # list of the WEC Model objects for the simulations
+        # self.dbObj = None
+        self.wecObj_list = []  # list of the WEC Model objects for the simulations
+        self.cecObj_list = []  # list of the WEC Model objects for the simulations
         # these list could probably be combined? ^^^
 
     def initialize_psse(self, solver_args=None):
@@ -70,7 +69,9 @@ class WecGrid:
         solver_args = solver_args or {}  # Use empty dict if no args are provided
         self.psseObj = PSSeWrapper(self.case_file, self)
         self.psseObj.initialize(solver_args)
-        print(f"PSSE initialized with case file: {self.case_file_name}.") # TODO: this shoould be a check not a print
+        print(
+            f"PSSE initialized with case file: {self.case_file_name}."
+        )  # TODO: this shoould be a check not a print
 
     def initialize_pypsa(self, solver_args=None):
         """
@@ -82,22 +83,22 @@ class WecGrid:
         solver_args = solver_args or {}  # Use empty dict if no args are provided
         self.pypsaObj = pyPSAWrapper(self.case_file, self)
         self.pypsaObj.initialize(solver_args)
-        print(f"PyPSA initialized with case file: {self.case_file_name}.") # TODO: this shoould be a check not a print
+        print(
+            f"PyPSA initialized with case file: {self.case_file_name}."
+        )  # TODO: this shoould be a check not a print
 
-        
     def create_wec(self, ID, model, bus_location, run_sim=True):
         self.wecObj_list.append(wec_class.WEC(ID, model, bus_location, run_sim))
 
         self.psseObj.dataframe.loc[
             self.psseObj.dataframe["BUS_ID"] == bus_location, "Type"
-        ] = 4 # This updated the Grid Model for the grid to know that the bus now has a WEC/CEC on it.
+        ] = 4  # This updated the Grid Model for the grid to know that the bus now has a WEC/CEC on it.
         self.psseObj.wecObj_list = self.wecObj_list
         # TODO: need to update pyPSA obj too
-        
+
     def create_cec(self, ID, model, bus_location, run_sim=True):
         self.cecObj_list.append(cec_class.CEC(ID, model, bus_location, run_sim))
         self.psseObj.dataframe.loc[
             self.psseObj.dataframe["BUS_ID"] == bus_location, "Type"
-        ] = 4 # This updated the Grid Model for the grid to know that the bus now has a WEC/CEC on it.
+        ] = 4  # This updated the Grid Model for the grid to know that the bus now has a WEC/CEC on it.
         # TODO: need to update pyPSA obj too
-

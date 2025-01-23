@@ -16,11 +16,12 @@ import pypower.api as pypower
 
 # Local Libraries (updated with relative imports)
 from ..utilities.util import read_paths  # Relative import for utilities/util.py
-from ..viz.pypsa_viz import PyPSAVisualizer 
+from ..viz.pypsa_viz import PyPSAVisualizer
 
 # Initialize the PATHS dictionary
 PATHS = read_paths()
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 class pyPSAWrapper:
     def __init__(self, case, WecGridCore):
@@ -28,7 +29,7 @@ class pyPSAWrapper:
         self.pypsa_history = {}
         self.pypsa_object_history = {}
         self.dataframe = pd.DataFrame()
-        self.WecGridCore = WecGridCore  # Reference to the parent 
+        self.WecGridCore = WecGridCore  # Reference to the parent
 
     def initialize(self, solver):
         """
@@ -45,7 +46,9 @@ class pyPSAWrapper:
         eng.eval("savecase('here.mat',mpc,1.0)", nargout=0)
 
         # Load the MATPOWER case file from a .mat file
-        ppc = pypower.loadcase("./here.mat") # TODO: this is hardcode, should be passing the mat file, tbh I forgot what this is for. 
+        ppc = pypower.loadcase(
+            "./here.mat"
+        )  # TODO: this is hardcode, should be passing the mat file, tbh I forgot what this is for.
 
         # Convert Pandapower network to PyPSA network
         pypsa_network = pypsa.Network()
@@ -73,27 +76,27 @@ class pyPSAWrapper:
         time = self.WecGridCore.wecObj_list[0].dataframe.time.to_list()
         num_wecs = len(self.WecGridCore.wecObj_list)
         num_cecs = len(self.WecGridCore.cecObj_list)
-        
+
         for t in time:
             if t >= start and t <= end:
                 if num_wecs > 0:
                     for idx, wec_obj in enumerate(self.WecGridCore.wecObj_list):
                         bus = wec_obj.bus_location
-                        pg = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].pg 
+                        pg = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].pg
                         vs = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs
-                        
+
                         self.pypsa_object.generators.loc[
                             self.pypsa_object.generators.bus == str(bus), "v_set_pu"
                         ] = vs
                         self.pypsa_object.generators.loc[
                             self.pypsa_object.generators.bus == str(bus), "p_set"
                         ] = pg
-                if num_cecs > 0:   
+                if num_cecs > 0:
                     for idx, cec_obj in enumerate(self.WecGridCore.cecObj_list):
                         bus = cec_obj.bus_location
                         pg = cec_obj.dataframe.loc[cec_obj.dataframe.time == t].pg
                         vs = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs
-                        
+
                         self.pypsa_object.generators.loc[
                             self.pypsa_object.generators.bus == str(bus), "v_set_pu"
                         ] = vs
@@ -115,15 +118,10 @@ class pyPSAWrapper:
         temp.pf()
         self.pypsa_object = temp.copy()
         self.pypsa_dataframe = self.pypsa_object.buses
-        
+
     # TODO: build out the viz function for pyPSA
-    
+
     def viz(self, dataframe=None):
-        """
-
-        """
-        visualizer = PyPSAVisualizer(
-
-            pypsa_obj = self # need to pass this object itself? 
-        )
+        """ """
+        visualizer = PyPSAVisualizer(pypsa_obj=self)  # need to pass this object itself?
         return visualizer.viz()

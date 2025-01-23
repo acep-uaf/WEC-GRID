@@ -12,6 +12,7 @@ from ..database_handler.connection_class import DB_PATH, SQLiteConnection
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
 def dbQuery(query, parameters=(), return_type="cursor"):
     """
     Execute a given SQL query and return the response.

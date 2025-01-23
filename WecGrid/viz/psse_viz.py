@@ -18,10 +18,9 @@ _LABEL_MAP = {1: "PQ Bus", 2: "PV Bus", 3: "Swing Bus", 4: "WEC Bus"}
 _THRESHOLD = 50
 
 
-
 class PSSEVisualizer:
     def __init__(self, psse_obj):
-        self.psse_obj = psse_obj # passing the psse object to the visualizer, this is the parent object
+        self.psse_obj = psse_obj  # passing the psse object to the visualizer, this is the parent object
 
     # def plot_load_curve(self, bus_id):
     #     """Plot the load curve for a given bus."""
@@ -45,8 +44,6 @@ class PSSEVisualizer:
     #     plt.legend()
     #     plt.tight_layout()
     #     plt.show()
-
-
 
     def plot_bus(self, bus_num, time, arg_1, arg_2):
         """
@@ -109,9 +106,9 @@ class PSSEVisualizer:
         """Setup the Cytoscape graph with nodes and edges."""
         # if dataframe is None:
         #     dataframe = self.psse_obj.dataframe
-        
+
         dataframe = self.psse_obj.dataframe
-        
+
         dataframe[dataframe.select_dtypes(include=["number"]).columns] = (
             dataframe.select_dtypes(include=["number"])
             .fillna(0)

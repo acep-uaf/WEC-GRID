@@ -22,17 +22,3 @@ from .utilities.util import dbQuery, read_paths
 from .viz.psse_viz import PSSEVisualizer
 from .viz.pypsa_viz import PyPSAVisualizer
 from .wec.wec_class import WEC
-
-# Expose the public API of the package
-__all__ = [
-    "WecGrid",          # Main class
-    "PSSeWrapper",
-    "CEC",
-    "SQLiteConnection",
-    "pyPSAWrapper",
-    "dbQuery",
-    "read_paths",
-    "PSSEVisualizer",
-    "PyPSAVisualizer",
-    "WEC",
-]

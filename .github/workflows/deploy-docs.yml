@@ -3,35 +3,47 @@ name: Deploy MkDocs to GitHub Pages
 on:
   push:
     branches:
-      - SoftwareX  # Adjust this if your default branch is not "main"
+      - SoftwareX  # Adjust if your branch is different
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  deploy:
+  # Build job
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Step 2: Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      # Step 3: Install dependencies
       - name: Install Dependencies
         run: |
-          pip install mkdocs-material mkdocstrings
+          pip install mkdocs-material mkdocstrings  # Add other plugins you use if needed
 
-      # Step 4: Build the MkDocs site
-      - name: Build MkDocs
+      - name: Build MkDocs Documentation
         run: mkdocs build
 
-      # Step 5: Deploy to GitHub Pages
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site  # MkDocs builds to "site" by default
+          path: site  # MkDocs output is in the 'site' directory by default
+
+  # Deploy job
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

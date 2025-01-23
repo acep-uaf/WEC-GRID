@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 jobs:
-  # Build job
+  # Build the MkDocs site
   build:
     runs-on: ubuntu-latest
     steps:
@@ -24,25 +24,25 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install Dependencies
+      - name: Install MkDocs and Plugins
         run: |
-          pip install mkdocs-material mkdocstrings  # Add other plugins you use if needed
+          pip install mkdocs-material mkdocstrings  # Add any additional plugins you use
 
-      - name: Build MkDocs Documentation
+      - name: Build MkDocs Site
         run: mkdocs build
 
-      - name: Upload Artifact
+      - name: Upload Built Site as Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site  # MkDocs output is in the 'site' directory by default
+          path: site  # MkDocs outputs the site to the 'site/' directory by default
 
-  # Deploy job
+  # Deploy the site to GitHub Pages
   deploy:
+    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

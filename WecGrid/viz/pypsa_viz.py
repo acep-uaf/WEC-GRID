@@ -22,6 +22,7 @@ class PyPSAVisualizer:
     def __init__(self, pypsa_obj):
         self.pypsa_obj = pypsa_obj  # passing the psse object to the visualizer, this is the parent object
 
+
     def plot_bus(self, bus_num, time, arg_1, arg_2):
         """
         Description: This function plots the activate and reactive power for a given bus
@@ -100,16 +101,16 @@ class PyPSAVisualizer:
         # Add nodes
         for _, row in dataframe.iterrows():
             node_data = {
-                "id": str(row["BUS_ID"]),
-                "label": str(row["BUS_ID"]),
-                "type": row["Type"],
-                "classes": _COLOR_MAP[row["Type"]],
-                "P": row["P"],
-                "Q": row["Q"],
-                "angle": row["ANGLE"],
+                "id": str(row["Bus"]),
+                "label": str(row["Bus"]),
+                "type": row["type"],
+                "classes": _COLOR_MAP[row["type"]],
+                "P": row["Pd"],
+                "Q": row["Qd"],
+                "angle": row["v_ang_set"],
             }
             cyto_graph.graph.add_node(ipycytoscape.Node(data=node_data))
-            nx_graph.add_node(str(row["BUS_ID"]), **node_data)
+            nx_graph.add_node(str(row["Bus"]), **node_data)
 
         # Fetch the flow data
         flow_data = self.pypsa_obj.flow_data
@@ -194,11 +195,11 @@ class PyPSAVisualizer:
         """Update the information box based on the clicked node's data."""
 
         # Get the dataframe for the specified time from psse_history
-        dataframe = self.psse_history.get(t, None)
+        dataframe = self.pypsa_obj.pypsa_history.get(t, None)
         if dataframe is None:
             return f"No data available for time: {t}s"
 
-        row = dataframe[dataframe["BUS_ID"] == node_id].iloc[0]
+        row = dataframe[dataframe["Bus"] == node_id].iloc[0]
 
         # Calculate P and Q using the provided columns
         P = row["P"]
@@ -282,7 +283,7 @@ class PyPSAVisualizer:
         )
 
         # Create a time slider
-        valid_times = sorted(self.pypsa_obj.history.keys())
+        valid_times = sorted(self.pypsa_obj.pypsa_history.keys())
         time_slider = widgets.SelectionSlider(
             options=valid_times,
             description="Time:",

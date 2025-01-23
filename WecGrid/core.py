@@ -2,6 +2,8 @@
 WEC-GRID source code
 Author: Alexander Barajas-Ritchie
 Email: barajale@oreogonstate.edu
+
+core.py
 """
 
 # Standard Libraries

@@ -331,6 +331,7 @@ class PSSeWrapper:
 
                 source = str(fromnumber[index]) if p_flow >= 0 else str(tonumber[index])
                 target = str(tonumber[index]) if p_flow >= 0 else str(fromnumber[index])
+                print("{} -> {}".format(source, target))
 
                 p_flow_dict[(source, target)] = p_flow
 
@@ -341,7 +342,7 @@ class PSSeWrapper:
             print(f"Error fetching data: {e}")
 
     def update_type(self):
-        for wec in self.wec_list:
+        for wec in self.WecGridCore.wecObj_list:
             self.dataframe.loc[self.dataframe["BUS_ID"] == wec.bus_location, "Type"] = 4
 
     def run_dynamics(self, dyr_file=""):
@@ -556,7 +557,7 @@ class PSSeWrapper:
                         #     #print("=======")
 
                 self.run_powerflow(self.solver)
-                # self.update_type() # TODO: check if I need this still. I think i update the type when I create the models
+                self.update_type() # TODO: check if I need this still. I think i update the type when I create the models
                 self.history[t] = self.dataframe
                 self.z_values(time=t)
                 self.store_p_flow(t)

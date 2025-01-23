@@ -26,8 +26,10 @@ jobs:
 
       - name: Install MkDocs and Plugins
         run: |
+          pip install mkdocstrings
+          pip install mkdocs-material mkdocstrings pymdown-extensions
           pip install mkdocs-material mkdocstrings  # Add any additional plugins you use
-          pip install mkdocstrings_handlers
+
 
       - name: Build MkDocs Site
         run: mkdocs build

@@ -515,15 +515,15 @@ class PSSeWrapper:
                 if num_wecs > 0:
                     for idx, wec_obj in enumerate(self.WecGridCore.wecObj_list):
                         bus = wec_obj.bus_location
-                        pg = wec_obj.dataframe.loc[
+                        pg = float(wec_obj.dataframe.loc[
                             wec_obj.dataframe.time == t
-                        ].pg  # adjust activate power
+                        ].pg)  # adjust activate power
                         ierr = PSSeWrapper.psspy.machine_data_2(
                             bus, "1", realar1=pg
                         )  # adjust activate power
                         if ierr > 0:
                             raise Exception("Error in AC injection")
-                        vs = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs
+                        vs = float(wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs)
                         ierr = PSSeWrapper.psspy.bus_chng_4(
                             bus, 0, realar2=vs
                         )  # adjsut voltage mag PU

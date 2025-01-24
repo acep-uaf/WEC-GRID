@@ -22,63 +22,62 @@ class PyPSAVisualizer:
     def __init__(self, pypsa_obj):
         self.pypsa_obj = pypsa_obj  # passing the psse object to the visualizer, this is the parent object
 
-
-    def plot_bus(self, bus_num, time, arg_1, arg_2):
+    def plot_bus(self, bus_num, arg_1=None, arg_2=None):
         """
-        Description: This function plots the activate and reactive power for a given bus
-        input:
-            bus_num: the bus number we wanna viz (Int)
-            time: a list with start and end time (list of Ints)
-        output:
-            matplotlib chart
+        Plots specified variables for a given bus using pypsa_history.
+
+        Parameters:
+            bus_num: The bus number to visualize (Int).
+            arg_1: The first variable to plot (e.g., 'p' for active power) (Optional).
+            arg_2: The second variable to plot (e.g., 'q' for reactive power) (Optional).
+
+        Output:
+            A matplotlib chart showing the specified variables over time.
         """
-        ylabel = ""
+        # Extract snapshots (keys) from pypsa_history
+        snapshots = [key for key in self.pypsa_obj.pypsa_history.keys() if key != -1]
 
-        # Enhancements for better visualization
-        sns.set_style("whitegrid")
-        plt.rcParams["font.size"] = 12
+        # Initialize lists for the variables
+        values_1 = [] if arg_1 is not None else None
+        values_2 = [] if arg_2 is not None else None
 
-        fig, (ax1, ax2) = plt.subplots(2, figsize=(10, 6))
-        fig.suptitle(f"Bus {bus_num} Data Visualization", fontsize=16, y=1.05)
+        # Extract the values for the specified variables across snapshots
+        for snapshot in snapshots:
+            if arg_1 is not None:
+                value_1 = self.pypsa_obj.pypsa_history[snapshot].loc[
+                    self.pypsa_obj.pypsa_history[snapshot]["Bus"] == str(bus_num), arg_1
+                ].values[0]
+                values_1.append(value_1)
 
-        bus_df = self.pypsa_obj.bus_history(bus_num)
-        bus_df = bus_df.loc[(bus_df["time"] >= time[0]) & (bus_df["time"] <= time[1])]
+            if arg_2 is not None:
+                value_2 = self.pypsa_obj.pypsa_history[snapshot].loc[
+                    self.pypsa_obj.pypsa_history[snapshot]["Bus"] == str(bus_num), arg_2
+                ].values[0]
+                values_2.append(value_2)
 
-        ax1.plot(
-            bus_df.time,
-            bus_df[arg_1],
-            marker="o",
-            markersize=4,
-            markerfacecolor="green",
-            color="green",
-            linestyle="-",
-            lw=2,
-        )
-        ax2.plot(
-            bus_df.time,
-            bus_df[arg_2],
-            marker="o",
-            markersize=4,
-            markerfacecolor="green",
-            color="green",
-            linestyle="-",
-            lw=2,
-        )
-
-        if arg_1 == "P":
-            ylabel = "MW"
-        else:
-            ylabel = ""
-
-        ax1.set(xlabel="", ylabel=f"{arg_1} - {ylabel}")
-        ax2.set(xlabel="Time (seconds)", ylabel=f"{arg_2} - {ylabel}")
-
-        ax1.grid(True, which="both", linestyle="--", linewidth=0.5)
-        ax2.grid(True, which="both", linestyle="--", linewidth=0.5)
-
+        # Plot the specified variables over time
+        plt.figure(figsize=(12, 6))
+        if arg_1 is not None:
+            plt.plot(
+                snapshots, values_1, marker="o", label=f"Bus {bus_num} {arg_1}", color="blue"
+            )
+        if arg_2 is not None:
+            plt.plot(
+                snapshots,
+                values_2,
+                marker="x",
+                label=f"Bus {bus_num} {arg_2}",
+                color="orange",
+            )
+        plt.title(f"Data for Bus {bus_num} Over Time", fontsize=16)
+        plt.xlabel("Time (Snapshots)", fontsize=14)
+        plt.ylabel("Value", fontsize=14)
+        plt.xticks(rotation=45)
+        plt.grid(True, alpha=0.5)
+        plt.legend()
         plt.tight_layout()
         plt.show()
-        return [bus_df[arg_1], bus_df[arg_2]]
+
 
     def _setup_cyto_graph(self, dataframe=None):
         """Setup the Cytoscape graph with nodes and edges."""
@@ -118,7 +117,8 @@ class PyPSAVisualizer:
         # Add edges using the fetched flow data
         try:
             # Get the specific flow data for the current time (-1 here)
-            time_flow_data = self.pypsa_obj.flow_data.get(-1, {})
+            baseline_snapshot = list(self.pypsa_obj.flow_data.keys())[0]  # Get the first key
+            time_flow_data = self.pypsa_obj.flow_data.get(baseline_snapshot, {})
 
             # Iterate over the inner dictionary
             for (source, target), p_flow in time_flow_data.items():
@@ -272,7 +272,71 @@ class PyPSAVisualizer:
 
         return final_layout
 
+    # def viz(self, dataframe=None):
+    #     # Setup Cytoscape graph with nodes and edges
+    #     cyto_graph, nx_graph = self._setup_cyto_graph(self.pypsa_obj.dataframe)
+
+    #     # Apply styles to the graph
+    #     self._setup_styles(cyto_graph)
+
+    #     # Bind the node click event
+    #     # Bind the node click event
+    #     cyto_graph.on(
+    #         "node",
+    #         "click",
+    #         lambda event: self._handle_node_click(event, info_html, time_slider),
+    #     )
+
+    #     # Create a time slider
+    #     #valid_times = sorted(self.pypsa_obj.pypsa_history.keys())
+    #     # Create a list of valid timestamps, excluding the -1 key
+    #     valid_times = sorted( [key for key in self.pypsa_obj.pypsa_history.keys() if isinstance(key, pd.Timestamp)])
+        
+    #     time_slider = widgets.SelectionSlider(
+    #         options=valid_times,
+    #         description="Time:",
+    #         disabled=False,
+    #         continuous_update=False,
+    #         orientation="horizontal",
+    #         readout=True,
+    #     )
+
+    #     def update_flow(change):
+    #         t = change["new"]
+    #         flow_data = self.pypsa_obj.flow_data.get(t, {})
+
+    #         for edge in cyto_graph.graph.edges:
+    #             source = edge.data["source"]
+    #             target = edge.data["target"]
+
+    #             # Fetch the p_flow value for this edge from the flow_data
+    #             p_flow = flow_data.get((source, target), 0)  # Default to 0 if not found
+
+    #             arrow_color = "green" if p_flow >= 0 else "red"
+    #             edge.data["arrow_color"] = arrow_color
+
+    #             # Assuming you still want to use the thickness to represent magnitude:
+    #             edge.classes = "thick" if abs(p_flow) > _THRESHOLD else "thin"
+
+    #     time_slider.observe(update_flow, names="value")
+
+    #     # Information box
+    #     info_html = widgets.HTML(
+    #         value="Click a node for details",
+    #         layout=widgets.Layout(
+    #             height="250px", width="138px", border="solid", padding="5px"
+    #         ),
+    #     )
+
+    #     # Arrange and layout the widgets
+    #     layout = self._layout_widgets(cyto_graph, time_slider, info_html)
+
+    #     return layout
+    
     def viz(self, dataframe=None):
+        """
+        Visualizes the PyPSA network using Cytoscape with power flow data and a time slider.
+        """
         # Setup Cytoscape graph with nodes and edges
         cyto_graph, nx_graph = self._setup_cyto_graph(self.pypsa_obj.dataframe)
 
@@ -280,15 +344,21 @@ class PyPSAVisualizer:
         self._setup_styles(cyto_graph)
 
         # Bind the node click event
-        # Bind the node click event
         cyto_graph.on(
             "node",
             "click",
             lambda event: self._handle_node_click(event, info_html, time_slider),
         )
 
-        # Create a time slider
-        valid_times = sorted(self.pypsa_obj.pypsa_history.keys())
+        # Create a list of valid timestamps, excluding the -1 key
+        valid_times = self.pypsa_obj.pypsa_history.keys()
+
+        # Check if valid_times is empty
+        if not valid_times:
+            raise ValueError("No valid timestamps found in pypsa_history.")
+
+
+
         time_slider = widgets.SelectionSlider(
             options=valid_times,
             description="Time:",

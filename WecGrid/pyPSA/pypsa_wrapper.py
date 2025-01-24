@@ -52,18 +52,19 @@ class pyPSAWrapper:
         )  # TODO: this is hardcode, should be passing the mat file, tbh I forgot what this is for.
 
         # Convert Pandapower network to PyPSA network
-        pypsa_network = pypsa.Network()
-        pypsa_network.import_from_pypower_ppc(ppc, overwrite_zero_s_nom=True)
-        pypsa_network.set_snapshots([datetime.now().strftime("%m/%d/%Y %H:%M:%S")])
+        #pypsa_network = pypsa.Network()
+        self.pypsa_object = pypsa.Network()
+        self.pypsa_object.import_from_pypower_ppc(ppc, overwrite_zero_s_nom=True)
+        self.pypsa_object.set_snapshots([datetime.now().strftime("%m/%d/%Y %H:%M:%S")])
 
-        pypsa_network.pf()
+        self.run_powerflow()
 
-        self.dataframe = pypsa_network.buses
+        self.dataframe = self.pypsa_object.df("Bus").copy() 
         self.format_df()
-        self.pypsa_object = pypsa_network
+        #self.pypsa_object = pypsa_network
         self.pypsa_history[-1] = self.dataframe
         self.pypsa_object_history[-1] = self.pypsa_object
-        self.format_df()
+        #self.format_df()
         self.store_p_flow(t=-1)
         print("pyPSA initialized")
 
@@ -97,7 +98,8 @@ class pyPSAWrapper:
         output: no output but pypsa_dataframe is updated and so is pypsa_history
         """
         # TODO: There has to be a better way to do this.
-        time = self.WecGridCore.wecObj_list[0].dataframe.time.to_list()
+        if time is None:
+            time = self.WecGridCore.wecObj_list[0].dataframe.time.to_list()
         num_wecs = len(self.WecGridCore.wecObj_list)
         num_cecs = len(self.WecGridCore.cecObj_list)
 
@@ -110,7 +112,7 @@ class pyPSAWrapper:
                         vs = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs
 
                         self.pypsa_object.generators.loc[
-                            self.pypsa_object.generators.bus == str(bus), "v_set_pu"
+                            self.pypsa_object.generators.bus == str(bus), "v_set"
                         ] = vs
                         self.pypsa_object.generators.loc[
                             self.pypsa_object.generators.bus == str(bus), "p_set"
@@ -119,10 +121,10 @@ class pyPSAWrapper:
                     for idx, cec_obj in enumerate(self.WecGridCore.cecObj_list):
                         bus = cec_obj.bus_location
                         pg = cec_obj.dataframe.loc[cec_obj.dataframe.time == t].pg
-                        vs = wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs
+                        vs = wec_obj.dataframe.loc[cec_obj.dataframe.time == t].vs
 
                         self.pypsa_object.generators.loc[
-                            self.pypsa_object.generators.bus == str(bus), "v_set_pu"
+                            self.pypsa_object.generators.bus == str(bus), "v_set"
                         ] = vs
                         self.pypsa_object.generators.loc[
                             self.pypsa_object.generators.bus == str(bus), "p_set"
@@ -140,10 +142,12 @@ class pyPSAWrapper:
         output: None
         """
         # this can be updated, it's a bit sloppy
-        temp = self.pypsa_object.copy()
-        temp.pf()
-        self.pypsa_object = temp.copy()
-        self.pypsa_dataframe = self.pypsa_object.buses
+        # temp = self.pypsa_object.copy()
+        # temp.pf()
+        # self.pypsa_object = temp.copy()
+        self.pypsa_object.pf()
+        #self.pypsa_dataframe = self.pypsa_object.buses
+        self.dataframe = self.pypsa_object.df("Bus").copy() 
 
     
 

@@ -193,17 +193,22 @@ class PyPSAVisualizer:
 
     def _update_info_box(self, node_id, t):
         """Update the information box based on the clicked node's data."""
-
+        node_id = str(node_id)
         # Get the dataframe for the specified time from psse_history
         dataframe = self.pypsa_obj.pypsa_history.get(t, None)
         if dataframe is None:
             return f"No data available for time: {t}s"
 
-        row = dataframe[dataframe["Bus"] == node_id].iloc[0]
+        filtered_data = dataframe[dataframe["Bus"] == node_id]
+        
+        if filtered_data.empty:
+            return f"No data available for Bus {node_id} at time {t}s"
+        
+        row = filtered_data.iloc[0]
 
         # Calculate P and Q using the provided columns
-        P = row["P"]
-        Q = row["Q"]
+        P = row["Pd"]
+        Q = row["Qd"]
 
         # Update the HTML widget with the relevant details using string formatting for 3 decimal places
         info_content = (
@@ -211,8 +216,8 @@ class PyPSAVisualizer:
             f"<strong>Bus ID:</strong> {node_id}<br>"
             f"<strong>P:</strong> {P:.3f}<br>"  # Format to 3 decimal places
             f"<strong>Q:</strong> {Q:.3f}<br>"  # Format to 3 decimal places
-            f"<strong>Angle:</strong> {row['ANGLED']:.3f}<br>"
-            f"<strong>Magnitude:</strong> {row['M_Mag']:.3f}<br>"
+            f"<strong>v_ang_set:</strong> {row['v_ang_set']:.3f}<br>"
+            f"<strong>v_mag_pu_set:</strong> {row['v_mag_pu_set']:.3f}<br>"
             f"<strong>Time:</strong> {t}s<br>"  # Display the time
         )
         return info_content

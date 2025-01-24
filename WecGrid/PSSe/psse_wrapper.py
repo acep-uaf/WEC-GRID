@@ -331,7 +331,7 @@ class PSSeWrapper:
 
                 source = str(fromnumber[index]) if p_flow >= 0 else str(tonumber[index])
                 target = str(tonumber[index]) if p_flow >= 0 else str(fromnumber[index])
-                print("{} -> {}".format(source, target))
+                #print("{} -> {}".format(source, target))
 
                 p_flow_dict[(source, target)] = p_flow
 

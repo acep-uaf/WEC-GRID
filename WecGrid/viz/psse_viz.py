@@ -217,7 +217,7 @@ class PSSEVisualizer:
         """Update the information box based on the clicked node's data."""
 
         # Get the dataframe for the specified time from psse_history
-        dataframe = self.psse_history.get(t, None)
+        dataframe = self.psse_obj.history.get(t, None)
         if dataframe is None:
             return f"No data available for time: {t}s"
 
@@ -233,7 +233,7 @@ class PSSEVisualizer:
             f"<strong>Bus ID:</strong> {node_id}<br>"
             f"<strong>P:</strong> {P:.3f}<br>"  # Format to 3 decimal places
             f"<strong>Q:</strong> {Q:.3f}<br>"  # Format to 3 decimal places
-            f"<strong>Angle:</strong> {row['ANGLED']:.3f}<br>"
+            f"<strong>Angle:</strong> {row['ANGLE']:.3f}<br>"
             f"<strong>Magnitude:</strong> {row['M_Mag']:.3f}<br>"
             f"<strong>Time:</strong> {t}s<br>"  # Display the time
         )

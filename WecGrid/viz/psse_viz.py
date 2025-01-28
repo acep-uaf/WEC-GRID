@@ -88,7 +88,7 @@ class PSSEVisualizer:
         )
 
         if arg_1 == "P":
-            ylabel = "MW"
+            ylabel = ""
         else:
             ylabel = ""
 

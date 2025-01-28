@@ -22,6 +22,8 @@ class PyPSAVisualizer:
     def __init__(self, pypsa_obj):
         self.pypsa_obj = pypsa_obj  # passing the psse object to the visualizer, this is the parent object
 
+ 
+
     def plot_bus(self, bus_num, arg_1=None, arg_2=None):
         """
         Plots specified variables for a given bus using pypsa_history.
@@ -32,52 +34,62 @@ class PyPSAVisualizer:
             arg_2: The second variable to plot (e.g., 'q' for reactive power) (Optional).
 
         Output:
-            A matplotlib chart showing the specified variables over time.
+            Two separate subplots showing the specified variables over time.
         """
+        if arg_1 is None and arg_2 is None:
+            print("Error: At least one argument (arg_1 or arg_2) must be provided.")
+            return
+
         # Extract snapshots (keys) from pypsa_history
         snapshots = [key for key in self.pypsa_obj.pypsa_history.keys() if key != -1]
 
         # Initialize lists for the variables
-        values_1 = [] if arg_1 is not None else None
-        values_2 = [] if arg_2 is not None else None
+        values_1 = [] if arg_1 else None
+        values_2 = [] if arg_2 else None
 
         # Extract the values for the specified variables across snapshots
         for snapshot in snapshots:
-            if arg_1 is not None:
-                value_1 = self.pypsa_obj.pypsa_history[snapshot].loc[
-                    self.pypsa_obj.pypsa_history[snapshot]["Bus"] == str(bus_num), arg_1
-                ].values[0]
-                values_1.append(value_1)
+            snapshot_data = self.pypsa_obj.pypsa_history[snapshot]
+            bus_data = snapshot_data[snapshot_data["Bus"] == str(bus_num)]
 
-            if arg_2 is not None:
-                value_2 = self.pypsa_obj.pypsa_history[snapshot].loc[
-                    self.pypsa_obj.pypsa_history[snapshot]["Bus"] == str(bus_num), arg_2
-                ].values[0]
-                values_2.append(value_2)
+            if not bus_data.empty:
+                if arg_1:
+                    value_1 = bus_data[arg_1].values[0]
+                    values_1.append(value_1)
+                if arg_2:
+                    value_2 = bus_data[arg_2].values[0]
+                    values_2.append(value_2)
+            else:
+                print(f"Warning: No data found for Bus {bus_num} at snapshot {snapshot}")
 
-        # Plot the specified variables over time
-        plt.figure(figsize=(12, 6))
-        if arg_1 is not None:
-            plt.plot(
-                snapshots, values_1, marker="o", label=f"Bus {bus_num} {arg_1}", color="blue"
-            )
-        if arg_2 is not None:
-            plt.plot(
-                snapshots,
-                values_2,
-                marker="x",
-                label=f"Bus {bus_num} {arg_2}",
-                color="orange",
-            )
-        plt.title(f"Data for Bus {bus_num} Over Time", fontsize=16)
-        plt.xlabel("Time (Snapshots)", fontsize=14)
-        plt.ylabel("Value", fontsize=14)
-        plt.xticks(rotation=45)
-        plt.grid(True, alpha=0.5)
-        plt.legend()
+        # Create subplots
+        fig, axs = plt.subplots(2 if values_1 and values_2 else 1, 1, figsize=(12, 8), sharex=True)
+
+        if values_1 and values_2:
+            axs[0].plot(snapshots, values_1, marker="o", color="green", linestyle="-")
+            axs[0].set_ylabel(f"{arg_1}", fontsize=14)
+            axs[0].grid(True, alpha=0.5)
+
+            axs[1].plot(snapshots, values_2, marker="o", color="blue", linestyle="-")
+            axs[1].set_ylabel(f"{arg_2}", fontsize=14)
+            axs[1].grid(True, alpha=0.5)
+            axs[1].set_xlabel("Time (seconds)", fontsize=14)
+
+        elif values_1:
+            axs.plot(snapshots, values_1, marker="o", color="green", linestyle="-")
+            axs.set_ylabel(f"{arg_1}", fontsize=14)
+            axs.set_xlabel("Time (seconds)", fontsize=14)
+            axs.grid(True, alpha=0.5)
+
+        elif values_2:
+            axs.plot(snapshots, values_2, marker="o", color="blue", linestyle="-")
+            axs.set_ylabel(f"{arg_2}", fontsize=14)
+            axs.set_xlabel("Time (seconds)", fontsize=14)
+            axs.grid(True, alpha=0.5)
+
+        plt.suptitle(f"Bus {bus_num} Data Visualization", fontsize=16)
         plt.tight_layout()
         plt.show()
-
 
     def _setup_cyto_graph(self, dataframe=None):
         """Setup the Cytoscape graph with nodes and edges."""
@@ -85,6 +97,9 @@ class PyPSAVisualizer:
         #     dataframe = self.pypsa_obj.dataframe
 
         dataframe = self.pypsa_obj.dataframe
+        
+        # get the last snapshot dataframe
+        dataframe = self.pypsa_obj.current_df()
 
         dataframe[dataframe.select_dtypes(include=["number"]).columns] = (
             dataframe.select_dtypes(include=["number"])
@@ -104,9 +119,9 @@ class PyPSAVisualizer:
                 "label": str(row["Bus"]),
                 "type": row["type"],
                 "classes": _COLOR_MAP[row["type"]],
-                "P": row["Pd"],
-                "Q": row["Qd"],
-                "angle": row["v_ang_set"],
+                "P": row["p"],
+                "Q": row["q"],
+                "angle": row["v_ang"],
             }
             cyto_graph.graph.add_node(ipycytoscape.Node(data=node_data))
             nx_graph.add_node(str(row["Bus"]), **node_data)
@@ -206,9 +221,9 @@ class PyPSAVisualizer:
         
         row = filtered_data.iloc[0]
 
-        # Calculate P and Q using the provided columns
-        P = row["Pd"]
-        Q = row["Qd"]
+        # # Calculate P and Q using the provided columns
+        P = row["p"]
+        Q = row["q"]
 
         # Update the HTML widget with the relevant details using string formatting for 3 decimal places
         info_content = (
@@ -216,8 +231,9 @@ class PyPSAVisualizer:
             f"<strong>Bus ID:</strong> {node_id}<br>"
             f"<strong>P:</strong> {P:.3f}<br>"  # Format to 3 decimal places
             f"<strong>Q:</strong> {Q:.3f}<br>"  # Format to 3 decimal places
-            f"<strong>v_ang_set:</strong> {row['v_ang_set']:.3f}<br>"
-            f"<strong>v_mag_pu_set:</strong> {row['v_mag_pu_set']:.3f}<br>"
+            # f"<strong>v_mag_pu_set:</strong> {row['v_mag_pu_set']:.3f}<br>"
+            # f"<strong>v_ang_set:</strong> {row['v_ang_set']:.3f}<br>"
+            # f"<strong>v_mag_pu_set:</strong> {row['v_mag_pu_set']:.3f}<br>"
             f"<strong>Time:</strong> {t}s<br>"  # Display the time
         )
         return info_content
@@ -338,7 +354,7 @@ class PyPSAVisualizer:
         Visualizes the PyPSA network using Cytoscape with power flow data and a time slider.
         """
         # Setup Cytoscape graph with nodes and edges
-        cyto_graph, nx_graph = self._setup_cyto_graph(self.pypsa_obj.dataframe)
+        cyto_graph, nx_graph = self._setup_cyto_graph(self.pypsa_obj.current_df())
 
         # Apply styles to the graph
         self._setup_styles(cyto_graph)

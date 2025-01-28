@@ -13,6 +13,7 @@ import pandas as pd
 import cmath
 import matlab.engine
 import pypower.api as pypower
+from pandas.tseries.offsets import DateOffset
 
 # Local Libraries (updated with relative imports)
 from ..utilities.util import read_paths  # Relative import for utilities/util.py
@@ -31,6 +32,11 @@ class pyPSAWrapper:
         self.dataframe = pd.DataFrame()
         self.flow_data = {}
         self.WecGridCore = WecGridCore  # Reference to the parent
+        self.timestamp_start = datetime.now()
+
+    def get_snapshots(self):
+        
+        return self.pypsa_object.snapshots
 
     def initialize(self, solver):
         """
@@ -55,37 +61,143 @@ class pyPSAWrapper:
         #pypsa_network = pypsa.Network()
         self.pypsa_object = pypsa.Network()
         self.pypsa_object.import_from_pypower_ppc(ppc, overwrite_zero_s_nom=True)
-        self.pypsa_object.set_snapshots([datetime.now().strftime("%m/%d/%Y %H:%M:%S")])
+        self.pypsa_object.set_snapshots([self.timestamp_start])  # Set the initial snapshot
+        
+        
 
-        self.run_powerflow()
+        #self.run_powerflow()
+        self.pypsa_object.pf()
 
         self.dataframe = self.pypsa_object.df("Bus").copy() 
         self.format_df()
         #self.pypsa_object = pypsa_network
-        #self.pypsa_history[datetime.now() ] = self.dataframe # TODO: need to replace with snapshot 
+        #self.pypsa_history[self.timestamp_start] = self.dataframe # TODO: need to replace with snapshot 
         #self.pypsa_object_history[]] = self.pypsa_object
         #self.format_df()
-        #self.store_p_flow() # not storing init p flow i guess?
+        self.store_p_flow() # not storing init p flow i guess?
         print("pyPSA initialized")
+        
+    
+    def add_wec(self, model, ID, from_bus, to_bus):
+        
+        name = "{}-{}".format(model, ID)
+        
+        # TODO if bus doesn't exist, add it
+        
+        # Step 1: Add a new bus for the WEC system
+        if str(to_bus) not in self.pypsa_object.buses.index:
+            from_bus_voltage = self.pypsa_object.buses.loc[str(from_bus), "v_nom"]
+            self.pypsa_object.add(
+                "Bus",
+                str(to_bus),
+                v_nom=from_bus_voltage,  # Match from_bus voltage
+                control='PV',  # WEC operates as a PV generator
+                carrier="AC",  # Standard AC grid connection
+                v_mag_pu_set=1.0,  # Set voltage at 1.0 p.u.
+                v_mag_pu_min=0.95,  # Min voltage in p.u.
+                v_mag_pu_max=1.05,  # Max voltage in p.u.
+                generator=name,
+                p = 0.0,
+                q = 0.0,
+                v_ang = 0.0
+            )
+            print(f"Bus {to_bus} added successfully.")
+
+        # self.pypsa_object.add(
+        #     "Load",
+        #     name=f"{name}_load",
+        #     bus=str(to_bus),
+        #     p_set=0.0,  # Active power demand (MW)
+        #     q_set=0.0,  # Reactive power demand (MVar)
+        # )
+        
+        self.pypsa_object.add(
+            "Generator",
+            name=name,
+            bus=str(to_bus),
+            control="PV",  # WEC operates as a PV generator
+            p_nom_max=1.2,  # Maximum active power output (MW)
+            p_set=0.0,
+            p_nom_extendable=False,  # Fixed capacity, not expandable
+            p_min_pu=0.0,  # No negative generation
+        )
+
+        
+        self.pypsa_object.add("Line", "Line-{}".format(name), bus0=str(from_bus), bus1=str(to_bus), length=10, r=0.05, x=0.15)
+        # TODO: need to fix this hardcoded line length, r, x values
+        
+        
+        
+        self.pypsa_object.pf()
+        self.dataframe = self.pypsa_object.df("Bus").copy()
+        self.format_df()
+        self.store_p_flow()
 
         # Define a function to classify the generator types
-    def classify_generator(self, generator):
-        if generator == "G0":
+    def classify_generator(self, control):
+        if control == "Slack":
             return 3  # Type 3
-        elif isinstance(generator, str) and generator.startswith("G"):
-            return 2  # Type 2 (e.g., G1, G2, ...)
-        elif pd.isna(generator):
-            return 1  # Type 1 (NaN)
-        elif generator == "WEC":
-            return 4  # Type 4 (WEC)
+        
+        
+        elif control == "PV":
+            return 2
+        
+        elif control == "PQ":
+            return 1
+        
+        elif control == "WEC":
+            return 4
         else:
-            return 0  # Default to Type 3 for unknown cases
+            return 0
         
     def format_df(self):
-        self.dataframe["type"] = self.dataframe["generator"].apply(self.classify_generator)
-        self.dataframe.reset_index(inplace=True)
-        self.dataframe.columns = ["_".join(col).strip() if isinstance(col, tuple) else col for col in self.dataframe.columns]
-        # TODO: update WEC locations
+        # self.dataframe["type"] = self.dataframe["generator"].apply(self.classify_generator)
+        # self.dataframe.reset_index(inplace=True)
+        # self.dataframe.columns = ["_".join(col).strip() if isinstance(col, tuple) else col for col in self.dataframe.columns]
+        # # TODO: update WEC locations
+        
+        snapshots = self.get_snapshots() 
+                # Specify the bus variables to collect
+        variables = ['v_mag_pu_set', 'p', 'q', 'v_mag_pu', 'v_ang']
+
+        # Loop over each snapshot
+        for snapshot in snapshots:
+            # Initialize a DataFrame to store data for this snapshot
+            snapshot_data = pd.DataFrame()
+
+            # Loop over the variables and collect the data
+            for var in variables:
+                if var in self.pypsa_object.buses_t:
+                    # Add the variable data as a column in the DataFrame
+                    snapshot_data[var] = self.pypsa_object.buses_t[var].loc[snapshot]
+            
+            # combine snapshot_data to have control, generator
+            bus_static_data = self.pypsa_object.df("Bus")[["control", "generator"]]
+            merged_data = pd.merge(snapshot_data, bus_static_data.copy(), on="Bus", how="left")
+            
+            merged_data["type"] = merged_data["control"].apply(self.classify_generator)
+            
+            # Add the snapshot data to the history dictionary
+            
+            # update WEC bus type
+            
+            for wec in self.WecGridCore.wecObj_list:
+                name = "{}-{}".format(wec.model, wec.ID)
+                merged_data.loc[merged_data["generator"] == str(name), "type"] = 4
+                
+    
+            self.pypsa_history[snapshot] = merged_data.reset_index()
+            
+            # update WEC bus type
+            
+            
+            
+        
+        
+        
+    def current_df(self):
+        
+        return self.pypsa_history[self.get_snapshots()[-1]]
         
     def ac_injection(self, snapshots=None):
         """
@@ -103,12 +215,19 @@ class pyPSAWrapper:
         """
         # Initialize empty dictionaries for generator active power (p_set)
         p_set_data = {}
+        #q_set_data = {}
 
         # Determine snapshots if not provided
-        if snapshots is None: # TODO: need to figure out how to handle snapshots in general
-            # Infer the number of time steps from the first WEC object's `pg` data
+        if snapshots is None:
+            # Use the initial timestamp and create a range of snapshots
             num_snapshots = len(self.WecGridCore.wecObj_list[0].dataframe["pg"])
-            snapshots = pd.date_range("2025-01-24 00:00", periods=num_snapshots, freq="5S")
+            # snapshots = pd.date_range(start=self. = pd.date_range(start=timestamp_start, periods=num_snapshots, freq="5T"), periods=num_snapshots, freq="5T")
+            
+            snapshots = pd.date_range(
+                        start=self.timestamp_start + DateOffset(minutes=5),  # Add 5 minutes
+                        periods=num_snapshots,
+                        freq="5T"  # 5-minute intervals
+                    )
 
         # Iterate over all WEC objects to gather data
         for idx, wec_obj in enumerate(self.WecGridCore.wecObj_list):
@@ -118,44 +237,64 @@ class pyPSAWrapper:
             generator_row = self.pypsa_object.generators.loc[
                 self.pypsa_object.generators.bus == str(bus)
             ]
+            
+            
             generator_name = generator_row.index[0]  # Get the generator name (index)
+            
+            generator_name = "{}-{}".format(wec_obj.model, wec_obj.ID)
 
             # Fetch pg (active power) data and assume it's aligned with snapshots
-            pg_data = wec_obj.dataframe["pg"] * 50  # Scale pg as needed
+            pg_data = wec_obj.dataframe["pg"] # Scale pg as needed
+            #vs_data = wec_obj.dataframe["vs"] # Scale pg as needed
 
             # Store active power values for this generator
             p_set_data[generator_name] = pg_data.to_list()
+            #q_set_data[generator_name] = [0.0] * len(pg_data)  # Assume no reactive power for now
+            #vs_set_data[generator_name] = vs_data.to_list()
 
         # Set snapshots in the PyPSA network
         self.pypsa_object.set_snapshots(snapshots)
 
+
         # Create a DataFrame for p_set (active power) for all generators
         p_set_df = pd.DataFrame(p_set_data, index=snapshots)
+        #v_set_df = pd.DataFrame(v_set_data, index=snapshots)
+        #q_set_df =  pd.DataFrame(q_set_data, index=snapshots)
+        
+        
 
         # Assign active power values to the generators in the PyPSA network
         self.pypsa_object.generators_t.p_set = p_set_df
+        #self.pypsa_object.generators_t.q_set = q_set_df
+        
+        # TODO: should try using p instead of p_set? 
+        
+        # should maybe set p_max_pu to 0.1 ? and mayeb q_set
+        
 
         # Run power flow for all snapshots
         self.pypsa_object.pf()
+        
+        self.format_df() # also saves in history
 
-        snapshots = self.pypsa_object.snapshots
+        #snapshots = self.pypsa_object.snapshots
 
-        # Specify the bus variables to collect
-        variables = ['v_mag_pu_set', 'p', 'q', 'v_mag_pu', 'v_ang']
+        # # Specify the bus variables to collect
+        # variables = ['v_mag_pu_set', 'p', 'q', 'v_mag_pu', 'v_ang']
 
-        # Loop over each snapshot
-        for snapshot in snapshots:
-            # Initialize a DataFrame to store data for this snapshot
-            snapshot_data = pd.DataFrame()
+        # # Loop over each snapshot
+        # for snapshot in snapshots:
+        #     # Initialize a DataFrame to store data for this snapshot
+        #     snapshot_data = pd.DataFrame()
 
-            # Loop over the variables and collect the data
-            for var in variables:
-                if var in self.pypsa_object.buses_t:
-                    # Add the variable data as a column in the DataFrame
-                    snapshot_data[var] = self.pypsa_object.buses_t[var].loc[snapshot]
+        #     # Loop over the variables and collect the data
+        #     for var in variables:
+        #         if var in self.pypsa_object.buses_t:
+        #             # Add the variable data as a column in the DataFrame
+        #             snapshot_data[var] = self.pypsa_object.buses_t[var].loc[snapshot]
 
-            # Add the snapshot data to the history dictionary
-            self.pypsa_history[snapshot] = snapshot_data.copy().reset_index() 
+        #     # Add the snapshot data to the history dictionary
+        #     self.pypsa_history[snapshot] = snapshot_data.copy().reset_index() 
             
         self.store_p_flow()
 
@@ -360,7 +499,11 @@ class pyPSAWrapper:
             self.flow_data = {}
 
         # Extract all valid snapshots
-        snapshots = [key for key in self.pypsa_history.keys() if key != -1]
+        #snapshots = [key for key in self.pypsa_history.keys() if key != -1]
+        
+        snapshots = self.get_snapshots()
+        
+        
 
         # Loop over snapshots
         for t in snapshots:
@@ -387,6 +530,20 @@ class pyPSAWrapper:
                     # Store the power flow in the dictionary
                     p_flow_dict[(source, target)] = p_flow
 
+                for transformer in self.pypsa_object.transformers.index:
+                    
+                    source = self.pypsa_object.transformers.loc[transformer, "bus0"]
+                    target = self.pypsa_object.transformers.loc[transformer, "bus1"]
+                    
+                    try:
+                        p_flow = self.pypsa_object.transformers_t["p0"].loc[t, transformer]
+                    except KeyError:
+                        print(f"Transformer {transformer} not found in t.p0 for snapshot {t}.")
+                        continue
+                    except IndexError:
+                        print(f"No power flow data available for transformer {transformer} at snapshot {t}.")
+                        continue
+                    p_flow_dict[(source, target)] = p_flow
                 # Store the power flow data for this snapshot in the flow_data dictionary
                 self.flow_data[t] = p_flow_dict
 
@@ -394,7 +551,7 @@ class pyPSAWrapper:
                 print(f"Error storing power flow data for snapshot {t}: {e}")
         
             
-    def plot_bus(self, bus_num, arg_1="p", arg_2=None):
+    def plot_bus(self, bus_num, arg_1="p", arg_2='q'):
         """
         Description: This function plots the activate and reactive power for a given bus
         input:

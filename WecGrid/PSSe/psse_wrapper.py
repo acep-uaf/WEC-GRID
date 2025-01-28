@@ -21,7 +21,6 @@ CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # TODO: the PSSE is sometimes blowing up but not returning and error so the sim continues. Need to fix ASAP
 class PSSeWrapper:
-    psspy = None
 
     def __init__(self, case, WecGridCore):
         self.case_file = case
@@ -103,6 +102,115 @@ class PSSeWrapper:
         self.run_powerflow(self.solver)
         # program variables
         # self.history['Start'] = self.dataframe
+    
+    def add_wec(self, model, ID, from_bus, to_bus):
+        """
+        Adds a WEC system to the PSSE model by:
+        1. Adding a new bus.
+        2. Adding a generator to the bus.
+        3. Adding a branch (line) connecting the new bus to an existing bus.
+
+        Parameters:
+        - model (str): Model identifier for the WEC system.
+        - ID (int): Unique identifier for the WEC system.
+        - from_bus (int): Existing bus ID to connect the line from.
+        - to_bus (int): New bus ID for the WEC system.
+        """
+        # Create a name for this WEC system
+        name = f"{model}-{ID}"
+
+
+        from_bus_voltage = PSSeWrapper.psspy.busdat(from_bus, 'BASE')[1]
+         
+        # Step 1: Add a new bus
+        intgar_bus = [2, 1, 1, 1]  # Bus type, area, zone, owner
+        realar_bus = [from_bus_voltage, 1.0, 0.0, 1.05, 0.95, 1.1, 0.9] # Base voltage, magnitude, etc.
+        ierr = PSSeWrapper.psspy.bus_data_4(to_bus, inode=0, intgar=intgar_bus, realar=realar_bus, name=name)
+        if ierr != 0:
+            print(f"Error adding bus {to_bus}. PSS®E error code: {ierr}")
+            return
+
+        print(f"Bus {to_bus} added successfully.")
+
+        # Step 2: Add plant data
+        intgar_plant = [0, 0] # No remote voltage regulation
+        realar_plant = [1.0, 10.0] # Scheduled voltage = 1.0, max reactive contribution = 10 MVar
+        ierr = PSSeWrapper.psspy.plant_data_4(to_bus, 0, intgar_plant, realar_plant)
+        if ierr == 0:
+            print(f"Plant data added successfully to bus {to_bus}.")
+        else:
+            print(f"Error adding plant data to bus {to_bus}. PSS®E error code: {ierr}")
+            return
+
+        # Step 3: Add a generator at the new bus
+        intgar_gen = [1, 1, 0, 0, 0, 0, 0]  # Generator status, ownership
+        realar_gen = [
+            0.0,  # PG: Active power generation
+            0.0,  # QG: Reactive power generation
+            1.0,  # QT (upper reactive power limit)
+            -1.0,  # QB (lower reactive power limit)
+            3.0,  # PT (upper active power limit)
+            -0.0,  # PB (lower active power limit, 0 means no negative generation)
+            100.0,  # MBASE: MVA base for generator TODO: Check this value, should be passed in ??
+            0.005,  # ZR: Small internal resistance (pu)
+            0.1,  # ZX: Small reactance (pu)
+            0.0,  # RT: Step-up transformer resistance (optional)
+            0.0,  # XT: Step-up transformer reactance (optional)
+            1.0,  # GTAP: Tap ratio (1.0 means no change)
+            1.0,  # F1: First owner fraction
+            0.0,  # F2: Second owner fraction
+            0.0,  # F3: Third owner fraction
+            0.0,  # F4: Fourth owner fraction
+            0.0   # WPF: Non-conventional machine power factor (0 for conventional)
+        ]
+        ierr = PSSeWrapper.psspy.machine_data_4(to_bus, str(ID), intgar_gen, realar_gen)
+        if ierr != 0:
+            print(f"Error adding generator {ID} to bus {to_bus}. PSS®E error code: {ierr}")
+            return
+
+        print(f"Generator {ID} added successfully to bus {to_bus}.")
+
+        # Step 4: Add a branch (line) connecting the existing bus to the new bus
+        ckt_id = "1"  # Circuit identifier
+        intgar_branch = [1, 1, 0, 0, 0, 0]  # Owner, branch status, metered end, etc.
+        realar_branch = [
+            0.05,  # R (resistance)
+            0.15,  # X (reactance)
+            0.0,   # B (line charging)
+            0.0,   # GI (real line shunt at from bus)
+            0.0,   # BI (reactive line shunt at from bus)
+            0.0,   # GJ (real line shunt at to bus)
+            0.0,   # BJ (reactive line shunt at to bus)
+            0.0,   # LEN (line length)
+            1.0,   # F1 (owner fraction)
+            0.0,   # F2 (second owner fraction)
+            0.0,   # F3 (third owner fraction)
+            0.0    # F4 (fourth owner fraction)
+        ]
+        ierr = PSSeWrapper.psspy.branch_data_3(from_bus, to_bus, ckt_id)
+        if ierr != 0:
+            print(f"Error adding branch from {from_bus} to {to_bus}. PSS®E error code: {ierr}")
+            return
+
+        print(f"Branch from {from_bus} to {to_bus} added successfully.")
+
+        # Step 5: Run load flow and log voltages
+        ierr = PSSeWrapper.psspy.fnsl()
+        if ierr == 0:
+            _, from_bus_voltage = PSSeWrapper.psspy.busdat(from_bus, 'PU')
+            _, to_bus_voltage = PSSeWrapper.psspy.busdat(to_bus, 'PU')
+            print(f"Voltage at bus {from_bus}: {from_bus_voltage:.4f} p.u.")
+            print(f"Voltage at bus {to_bus}: {to_bus_voltage:.4f} p.u.")
+        else:
+            print(f"Error running load flow analysis. PSS®E error code: {ierr}")
+        
+        self.run_powerflow(self.solver)
+        
+        t = -1
+        self.update_type() # TODO: check if I need this still. I think i update the type when I create the models
+        self.history[t] = self.dataframe
+        self.z_values(time=t)
+        self.store_p_flow(t)
 
     def run_powerflow(self, solver):
         """
@@ -134,6 +242,8 @@ class PSSeWrapper:
         else:
             print("Error while grabbing values")
             return 0
+        
+        
 
     def get_values(self):
         """
@@ -519,7 +629,7 @@ class PSSeWrapper:
                             wec_obj.dataframe.time == t
                         ].pg)  # adjust activate power
                         ierr = PSSeWrapper.psspy.machine_data_2(
-                            bus, "1", realar1=pg
+                            bus, str(wec_obj.ID), realar1=pg
                         )  # adjust activate power
                         if ierr > 0:
                             raise Exception("Error in AC injection")

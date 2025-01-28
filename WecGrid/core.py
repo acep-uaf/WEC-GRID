@@ -89,15 +89,22 @@ class WecGrid:
             f"PyPSA initialized with case file: {self.case_file_name}."
         )  # TODO: this shoould be a check not a print
 
-    def create_wec(self, ID, model, bus_location, run_sim=True):
-        self.wecObj_list.append(wec_class.WEC(ID, model, bus_location, run_sim))
+    def create_wec(self, ID, model, from_bus, to_bus, run_sim=True):
+        self.wecObj_list.append(wec_class.WEC(ID, model, to_bus, run_sim))
 
         # self.psseObj.dataframe.loc[
         #     self.psseObj.dataframe["BUS_ID"] == bus_location, "Type"
         # ] = 4  # This updated the Grid Model for the grid to know that the bus now has a WEC/CEC on it.
         # self.psseObj.wecObj_list = self.wecObj_list
         # TODO: need to update pyPSA obj too if exists? maybe not
-
+        if self.pypsaObj is not None: 
+            self.pypsaObj.add_wec(model, ID,from_bus, to_bus)
+        
+        
+        if self.psseObj is not None:
+            self.psseObj.add_wec(model, ID,from_bus, to_bus)
+        
+    
     def create_cec(self, ID, model, bus_location, run_sim=True):
         self.cecObj_list.append(cec_class.CEC(ID, model, bus_location, run_sim))
         # self.psseObj.dataframe.loc[

@@ -22,3 +22,5 @@ markdown_extensions:
       permalink: true
   - admonition
   - codehilite
+  - pymdownx.superfences
+  - pymdownx.details

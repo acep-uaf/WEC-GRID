@@ -41,16 +41,21 @@ CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class WecGrid:
     """
-    The WecGrid class represents the WEC-Grid system.
-    It provides methods to initialize solvers (PSSE, PyPSA) and manage system data.
+    Main class for coordinating between PSSE and PyPSA functionality and managing WEC devices.
+
+    Attributes:
+        case (str): Path to the case file.
+        psseObj (PSSEWrapper): Instance of the PSSE wrapper class.
+        pypsaObj (PyPSAWrapper): Instance of the PyPSA wrapper class.
+        wecObj_list (list): List of WEC objects.
     """
 
     def __init__(self, case):
         """
-        Initializes the WecGrid system with a case file.
+        Initializes the WecGrid class with the given case file.
 
         Args:
-            case (str): The file path to a raw or sav file.
+            case (str): Path to the case file.
         """
         self.case_file = case  # TODO: need to verify file exist
         self.case_file_name = os.path.basename(case)
@@ -90,6 +95,15 @@ class WecGrid:
         )  # TODO: this shoould be a check not a print
 
     def create_wec(self, ID, model, from_bus, to_bus, run_sim=True):
+        """
+        Creates a WEC device and adds it to both PSSE and PyPSA models.
+
+        Args:
+            ID (int): Identifier for the WEC device.
+            model (str): Model type of the WEC device.
+            from_bus (int): The bus number from which the WEC device is connected.
+            to_bus (int): The bus number to which the WEC device is connected.
+        """
         self.wecObj_list.append(wec_class.WEC(ID, model, to_bus, run_sim))
 
         # self.psseObj.dataframe.loc[
@@ -97,14 +111,12 @@ class WecGrid:
         # ] = 4  # This updated the Grid Model for the grid to know that the bus now has a WEC/CEC on it.
         # self.psseObj.wecObj_list = self.wecObj_list
         # TODO: need to update pyPSA obj too if exists? maybe not
-        if self.pypsaObj is not None: 
-            self.pypsaObj.add_wec(model, ID,from_bus, to_bus)
-        
-        
+        if self.pypsaObj is not None:
+            self.pypsaObj.add_wec(model, ID, from_bus, to_bus)
+
         if self.psseObj is not None:
-            self.psseObj.add_wec(model, ID,from_bus, to_bus)
-        
-    
+            self.psseObj.add_wec(model, ID, from_bus, to_bus)
+
     def create_cec(self, ID, model, bus_location, run_sim=True):
         self.cecObj_list.append(cec_class.CEC(ID, model, bus_location, run_sim))
         # self.psseObj.dataframe.loc[

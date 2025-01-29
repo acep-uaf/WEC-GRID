@@ -22,29 +22,6 @@ class PSSEVisualizer:
     def __init__(self, psse_obj):
         self.psse_obj = psse_obj  # passing the psse object to the visualizer, this is the parent object
 
-    # def plot_load_curve(self, bus_id):
-    #     """Plot the load curve for a given bus."""
-    #     # Check if the bus_id exists in load_profiles
-    #     bus_col_name = f"bus {bus_id}"
-    #     if bus_col_name not in self.load_profiles.columns:
-    #         print(f"No load profile available for bus {bus_id}.")
-    #         return
-
-    #     plt.figure(figsize=(10, 6))
-    #     plt.plot(
-    #         self.load_profiles["time"],
-    #         self.load_profiles[bus_col_name],
-    #         label=f"Bus {bus_id} Load Curve",
-    #         color="blue",
-    #     )
-    #     plt.xlabel("Time (s)")
-    #     plt.ylabel("Load (MW or MVAR)")
-    #     plt.title(f"Load Curve for Bus {bus_id}")
-    #     plt.grid(True)
-    #     plt.legend()
-    #     plt.tight_layout()
-    #     plt.show()
-
     def plot_bus(self, bus_num, time, arg_1, arg_2):
         """
         Description: This function plots the activate and reactive power for a given bus

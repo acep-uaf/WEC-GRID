@@ -22,8 +22,6 @@ class PyPSAVisualizer:
     def __init__(self, pypsa_obj):
         self.pypsa_obj = pypsa_obj  # passing the psse object to the visualizer, this is the parent object
 
- 
-
     def plot_bus(self, bus_num, arg_1=None, arg_2=None):
         """
         Plots specified variables for a given bus using pypsa_history.
@@ -60,10 +58,14 @@ class PyPSAVisualizer:
                     value_2 = bus_data[arg_2].values[0]
                     values_2.append(value_2)
             else:
-                print(f"Warning: No data found for Bus {bus_num} at snapshot {snapshot}")
+                print(
+                    f"Warning: No data found for Bus {bus_num} at snapshot {snapshot}"
+                )
 
         # Create subplots
-        fig, axs = plt.subplots(2 if values_1 and values_2 else 1, 1, figsize=(12, 8), sharex=True)
+        fig, axs = plt.subplots(
+            2 if values_1 and values_2 else 1, 1, figsize=(12, 8), sharex=True
+        )
 
         if values_1 and values_2:
             axs[0].plot(snapshots, values_1, marker="o", color="green", linestyle="-")
@@ -97,7 +99,7 @@ class PyPSAVisualizer:
         #     dataframe = self.pypsa_obj.dataframe
 
         dataframe = self.pypsa_obj.dataframe
-        
+
         # get the last snapshot dataframe
         dataframe = self.pypsa_obj.current_df()
 
@@ -132,7 +134,9 @@ class PyPSAVisualizer:
         # Add edges using the fetched flow data
         try:
             # Get the specific flow data for the current time (-1 here)
-            baseline_snapshot = list(self.pypsa_obj.flow_data.keys())[0]  # Get the first key
+            baseline_snapshot = list(self.pypsa_obj.flow_data.keys())[
+                0
+            ]  # Get the first key
             time_flow_data = self.pypsa_obj.flow_data.get(baseline_snapshot, {})
 
             # Iterate over the inner dictionary
@@ -215,10 +219,10 @@ class PyPSAVisualizer:
             return f"No data available for time: {t}s"
 
         filtered_data = dataframe[dataframe["Bus"] == node_id]
-        
+
         if filtered_data.empty:
             return f"No data available for Bus {node_id} at time {t}s"
-        
+
         row = filtered_data.iloc[0]
 
         # # Calculate P and Q using the provided columns
@@ -307,7 +311,7 @@ class PyPSAVisualizer:
     #     #valid_times = sorted(self.pypsa_obj.pypsa_history.keys())
     #     # Create a list of valid timestamps, excluding the -1 key
     #     valid_times = sorted( [key for key in self.pypsa_obj.pypsa_history.keys() if isinstance(key, pd.Timestamp)])
-        
+
     #     time_slider = widgets.SelectionSlider(
     #         options=valid_times,
     #         description="Time:",
@@ -348,7 +352,7 @@ class PyPSAVisualizer:
     #     layout = self._layout_widgets(cyto_graph, time_slider, info_html)
 
     #     return layout
-    
+
     def viz(self, dataframe=None):
         """
         Visualizes the PyPSA network using Cytoscape with power flow data and a time slider.
@@ -372,8 +376,6 @@ class PyPSAVisualizer:
         # Check if valid_times is empty
         if not valid_times:
             raise ValueError("No valid timestamps found in pypsa_history.")
-
-
 
         time_slider = widgets.SelectionSlider(
             options=valid_times,

@@ -21,8 +21,23 @@ CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # TODO: the PSSE is sometimes blowing up but not returning and error so the sim continues. Need to fix ASAP
 class PSSeWrapper:
+    """
+    Wrapper class for PSSE functionalities.
+
+    Attributes:
+        case_file (str): Path to the case file.
+        wec_grid (WecGrid): Instance of the WecGrid class.
+        dataframe (pd.DataFrame): Dataframe to store PSSE data.
+    """
 
     def __init__(self, case, WecGridCore):
+        """
+        Initializes the PSSeWrapper class with the given case file and WecGrid instance.
+
+        Args:
+            case_file (str): Path to the case file.
+            wec_grid (WecGrid): Instance of the WecGrid class.
+        """
         self.case_file = case
         self.dataframe = pd.DataFrame()
         self.history = {}
@@ -102,7 +117,7 @@ class PSSeWrapper:
         self.run_powerflow(self.solver)
         # program variables
         # self.history['Start'] = self.dataframe
-    
+
     def add_wec(self, model, ID, from_bus, to_bus):
         """
         Adds a WEC system to the PSSE model by:
@@ -119,13 +134,22 @@ class PSSeWrapper:
         # Create a name for this WEC system
         name = f"{model}-{ID}"
 
+        from_bus_voltage = PSSeWrapper.psspy.busdat(from_bus, "BASE")[1]
 
-        from_bus_voltage = PSSeWrapper.psspy.busdat(from_bus, 'BASE')[1]
-         
         # Step 1: Add a new bus
         intgar_bus = [2, 1, 1, 1]  # Bus type, area, zone, owner
-        realar_bus = [from_bus_voltage, 1.0, 0.0, 1.05, 0.95, 1.1, 0.9] # Base voltage, magnitude, etc.
-        ierr = PSSeWrapper.psspy.bus_data_4(to_bus, inode=0, intgar=intgar_bus, realar=realar_bus, name=name)
+        realar_bus = [
+            from_bus_voltage,
+            1.0,
+            0.0,
+            1.05,
+            0.95,
+            1.1,
+            0.9,
+        ]  # Base voltage, magnitude, etc.
+        ierr = PSSeWrapper.psspy.bus_data_4(
+            to_bus, inode=0, intgar=intgar_bus, realar=realar_bus, name=name
+        )
         if ierr != 0:
             print(f"Error adding bus {to_bus}. PSS®E error code: {ierr}")
             return
@@ -133,8 +157,11 @@ class PSSeWrapper:
         print(f"Bus {to_bus} added successfully.")
 
         # Step 2: Add plant data
-        intgar_plant = [0, 0] # No remote voltage regulation
-        realar_plant = [1.0, 10.0] # Scheduled voltage = 1.0, max reactive contribution = 10 MVar
+        intgar_plant = [0, 0]  # No remote voltage regulation
+        realar_plant = [
+            1.0,
+            10.0,
+        ]  # Scheduled voltage = 1.0, max reactive contribution = 10 MVar
         ierr = PSSeWrapper.psspy.plant_data_4(to_bus, 0, intgar_plant, realar_plant)
         if ierr == 0:
             print(f"Plant data added successfully to bus {to_bus}.")
@@ -161,11 +188,13 @@ class PSSeWrapper:
             0.0,  # F2: Second owner fraction
             0.0,  # F3: Third owner fraction
             0.0,  # F4: Fourth owner fraction
-            0.0   # WPF: Non-conventional machine power factor (0 for conventional)
+            0.0,  # WPF: Non-conventional machine power factor (0 for conventional)
         ]
         ierr = PSSeWrapper.psspy.machine_data_4(to_bus, str(ID), intgar_gen, realar_gen)
         if ierr != 0:
-            print(f"Error adding generator {ID} to bus {to_bus}. PSS®E error code: {ierr}")
+            print(
+                f"Error adding generator {ID} to bus {to_bus}. PSS®E error code: {ierr}"
+            )
             return
 
         print(f"Generator {ID} added successfully to bus {to_bus}.")
@@ -176,20 +205,22 @@ class PSSeWrapper:
         realar_branch = [
             0.05,  # R (resistance)
             0.15,  # X (reactance)
-            0.0,   # B (line charging)
-            0.0,   # GI (real line shunt at from bus)
-            0.0,   # BI (reactive line shunt at from bus)
-            0.0,   # GJ (real line shunt at to bus)
-            0.0,   # BJ (reactive line shunt at to bus)
-            0.0,   # LEN (line length)
-            1.0,   # F1 (owner fraction)
-            0.0,   # F2 (second owner fraction)
-            0.0,   # F3 (third owner fraction)
-            0.0    # F4 (fourth owner fraction)
+            0.0,  # B (line charging)
+            0.0,  # GI (real line shunt at from bus)
+            0.0,  # BI (reactive line shunt at from bus)
+            0.0,  # GJ (real line shunt at to bus)
+            0.0,  # BJ (reactive line shunt at to bus)
+            0.0,  # LEN (line length)
+            1.0,  # F1 (owner fraction)
+            0.0,  # F2 (second owner fraction)
+            0.0,  # F3 (third owner fraction)
+            0.0,  # F4 (fourth owner fraction)
         ]
         ierr = PSSeWrapper.psspy.branch_data_3(from_bus, to_bus, ckt_id)
         if ierr != 0:
-            print(f"Error adding branch from {from_bus} to {to_bus}. PSS®E error code: {ierr}")
+            print(
+                f"Error adding branch from {from_bus} to {to_bus}. PSS®E error code: {ierr}"
+            )
             return
 
         print(f"Branch from {from_bus} to {to_bus} added successfully.")
@@ -197,17 +228,17 @@ class PSSeWrapper:
         # Step 5: Run load flow and log voltages
         ierr = PSSeWrapper.psspy.fnsl()
         if ierr == 0:
-            _, from_bus_voltage = PSSeWrapper.psspy.busdat(from_bus, 'PU')
-            _, to_bus_voltage = PSSeWrapper.psspy.busdat(to_bus, 'PU')
+            _, from_bus_voltage = PSSeWrapper.psspy.busdat(from_bus, "PU")
+            _, to_bus_voltage = PSSeWrapper.psspy.busdat(to_bus, "PU")
             print(f"Voltage at bus {from_bus}: {from_bus_voltage:.4f} p.u.")
             print(f"Voltage at bus {to_bus}: {to_bus_voltage:.4f} p.u.")
         else:
             print(f"Error running load flow analysis. PSS®E error code: {ierr}")
-        
+
         self.run_powerflow(self.solver)
-        
+
         t = -1
-        self.update_type() # TODO: check if I need this still. I think i update the type when I create the models
+        self.update_type()  # TODO: check if I need this still. I think i update the type when I create the models
         self.history[t] = self.dataframe
         self.z_values(time=t)
         self.store_p_flow(t)
@@ -242,8 +273,6 @@ class PSSeWrapper:
         else:
             print("Error while grabbing values")
             return 0
-        
-        
 
     def get_values(self):
         """
@@ -441,7 +470,7 @@ class PSSeWrapper:
 
                 source = str(fromnumber[index]) if p_flow >= 0 else str(tonumber[index])
                 target = str(tonumber[index]) if p_flow >= 0 else str(fromnumber[index])
-                #print("{} -> {}".format(source, target))
+                # print("{} -> {}".format(source, target))
 
                 p_flow_dict[(source, target)] = p_flow
 
@@ -625,15 +654,17 @@ class PSSeWrapper:
                 if num_wecs > 0:
                     for idx, wec_obj in enumerate(self.WecGridCore.wecObj_list):
                         bus = wec_obj.bus_location
-                        pg = float(wec_obj.dataframe.loc[
-                            wec_obj.dataframe.time == t
-                        ].pg)  # adjust activate power
+                        pg = float(
+                            wec_obj.dataframe.loc[wec_obj.dataframe.time == t].pg
+                        )  # adjust activate power
                         ierr = PSSeWrapper.psspy.machine_data_2(
                             bus, str(wec_obj.ID), realar1=pg
                         )  # adjust activate power
                         if ierr > 0:
                             raise Exception("Error in AC injection")
-                        vs = float(wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs)
+                        vs = float(
+                            wec_obj.dataframe.loc[wec_obj.dataframe.time == t].vs
+                        )
                         ierr = PSSeWrapper.psspy.bus_chng_4(
                             bus, 0, realar2=vs
                         )  # adjsut voltage mag PU
@@ -667,7 +698,7 @@ class PSSeWrapper:
                         #     #print("=======")
 
                 self.run_powerflow(self.solver)
-                self.update_type() # TODO: check if I need this still. I think i update the type when I create the models
+                self.update_type()  # TODO: check if I need this still. I think i update the type when I create the models
                 self.history[t] = self.dataframe
                 self.z_values(time=t)
                 self.store_p_flow(t)

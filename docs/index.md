@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./images/WEC-Gird_logo.png">
+  <img src="./images/WEC-Grid_logo.png">
 </p>
 
 ## WEC-GRID: Integrating Wave Energy Converters into Power Grid Simulations
@@ -21,7 +21,7 @@ WEC-GRID is in its nascent stages, yet it presents a Python Jupyter Notebook tha
 For the current implementations, WEC-GRID is compatible with PSSe and [WEC-SIM](https://wec-sim.github.io/WEC-Sim/). The widespread application of PSSe in the power systems industry, coupled with its robust API, makes it an ideal choice.
 
 <p align="center">
-  <img src="docs/example_viz.png" alt="WEC-GRID Data Visualization">
+  <img src="./images/example_viz.png" alt="WEC-GRID Data Visualization">
 </p>
 
 ---
